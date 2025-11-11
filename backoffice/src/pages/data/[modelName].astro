@@ -197,6 +197,28 @@ const { modelName } = Astro.params;
 		max-width: 100%;
 	}
 
+	/* Image preview styles */
+	.image-preview {
+		max-width: 150px;
+		max-height: 150px;
+		object-fit: cover;
+		border-radius: 0.375rem;
+		border: 1px solid #d1d5db;
+		transition: transform 0.2s ease;
+		cursor: pointer;
+	}
+
+	.image-preview:hover {
+		transform: scale(1.05);
+	}
+
+	.table img {
+		max-height: 48px;
+		max-width: 48px;
+		object-fit: cover;
+		border-radius: 0.25rem;
+	}
+
 	/* Form Styles */
 	.form-group {
 		margin-bottom: 1.5rem;
@@ -245,6 +267,23 @@ const { modelName } = Astro.params;
 
 	.required {
 		color: #ef4444;
+	}
+
+	.file-input {
+		border: 2px dashed #d1d5db;
+		background: #f9fafb;
+		cursor: pointer;
+		transition: border-color 0.2s, background-color 0.2s;
+	}
+
+	.file-input:hover {
+		border-color: #9ca3af;
+		background: #f3f4f6;
+	}
+
+	.file-input:focus {
+		border-color: #3b82f6;
+		background: white;
 	}
 
 	.help-text {
@@ -407,6 +446,23 @@ const { modelName } = Astro.params;
 				return `<a href="${value}" target="_blank" class="text-primary">${value}</a>`;
 			case 'email':
 				return `<a href="mailto:${value}" class="text-primary">${value}</a>`;
+			case 'file':
+				if (!value) return '-';
+				const fileName = value.split('/').pop();
+				// Gestisce sia URL completi che path relativi
+				const fileUrl = value.startsWith('http') ? value : `http://localhost:8000${value.startsWith('/') ? '' : '/media/'}${value}`;
+				return `<a href="${fileUrl}" target="_blank" class="text-blue-600">📄 ${fileName}</a>`;
+			case 'image':
+				if (!value) return '-';
+				const imageName = value.split('/').pop();
+				// Gestisce sia URL completi che path relativi
+				const imageUrl = value.startsWith('http') ? value : `http://localhost:8000${value.startsWith('/') ? '' : '/media/'}${value}`;
+				return `
+					<div class="flex items-center gap-2">
+						<img src="${imageUrl}" alt="${imageName}" class="image-preview cursor-pointer" style="max-height: 48px; max-width: 48px;" onclick="window.open('${imageUrl}', '_blank')" />
+						<a href="${imageUrl}" target="_blank" class="text-blue-600">🖼️ ${imageName}</a>
+					</div>
+				`;
 			default:
 				return value.toString().length > 50 ? value.toString().substring(0, 50) + '...' : value;
 		}
@@ -485,30 +541,59 @@ const { modelName } = Astro.params;
 		form.addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const formData = new FormData(form);
-			const recordData = {};
 			
-			currentModel.meta_fields.forEach(field => {
-				const value = formData.get(field.name);
-				switch (field.field_type) {
-					case 'boolean':
-						recordData[field.name] = formData.has(field.name);
-						break;
-					case 'integer':
-						recordData[field.name] = value ? parseInt(value.toString()) : null;
-						break;
-					case 'decimal':
-						recordData[field.name] = value ? parseFloat(value.toString()) : null;
-						break;
-					case 'foreign_key':
-						recordData[field.name] = value ? parseInt(value.toString()) : null;
-						break;
-					default:
-						recordData[field.name] = value ? value.toString() : null;
+			// Verifica se ci sono file nel form
+			let hasFiles = false;
+			for (let [key, value] of formData.entries()) {
+				if (value instanceof File && value.size > 0) {
+					hasFiles = true;
+					break;
 				}
-			});
+			}
+			
+			// Se ci sono file, invia FormData direttamente
+			// Altrimenti, converti in JSON come prima
+			let recordData;
+			if (hasFiles) {
+				recordData = formData; // Mantieni FormData per i file
+				
+				// Aggiungi i campi "keep_*" per i file esistenti che non sono stati sostituiti
+				currentModel.meta_fields.forEach(field => {
+					if ((field.field_type === 'file' || field.field_type === 'image') && isEditing && initialData[field.name]) {
+						const fileInput = formData.get(field.name);
+						// Se non è stato selezionato un nuovo file, mantieni quello esistente
+						if (!fileInput || (fileInput instanceof File && fileInput.size === 0)) {
+							formData.delete(field.name); // Rimuovi il campo file vuoto
+							formData.set(`keep_${field.name}`, initialData[field.name]); // Indica di mantenere il file esistente
+						}
+					}
+				});
+			} else {
+				// Converti in oggetto JSON come prima
+				recordData = {};
+				currentModel.meta_fields.forEach(field => {
+					const value = formData.get(field.name);
+					switch (field.field_type) {
+						case 'boolean':
+							recordData[field.name] = formData.has(field.name);
+							break;
+						case 'integer':
+							recordData[field.name] = value ? parseInt(value.toString()) : null;
+							break;
+						case 'decimal':
+							recordData[field.name] = value ? parseFloat(value.toString()) : null;
+							break;
+						case 'foreign_key':
+							recordData[field.name] = value ? parseInt(value.toString()) : null;
+							break;
+						default:
+							recordData[field.name] = value ? value.toString() : null;
+					}
+				});
+			}
 
 			try {
-				await saveRecord(recordData, isEditing ? initialData.id : null);
+				await saveRecord(recordData, isEditing ? initialData.id : null, hasFiles);
 				closeRecordModal();
 				showSuccessMessage(isEditing ? 'Record aggiornato con successo!' : 'Record creato con successo!');
 			} catch (error) {
@@ -569,6 +654,29 @@ const { modelName } = Astro.params;
 				
 			case 'url':
 				widget = `<input type="url" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="https://esempio.com">`;
+				break;
+				
+			case 'file':
+				const fileValue = value ? `<p class="text-sm text-gray-600 mb-2">File attuale: <a href="${value.startsWith('http') ? value : `http://localhost:8000${value.startsWith('/') ? '' : '/media/'}${value}`}" target="_blank" class="text-blue-600">${value.split('/').pop()}</a></p>` : '';
+				widget = `
+					${fileValue}
+					<input type="file" id="${inputId}" name="${field.name}" class="form-input file-input" ${!value ? required : ''} accept="*/*">
+					${value ? '<input type="hidden" name="keep_' + field.name + '" value="' + value + '">' : ''}
+				`;
+				break;
+				
+			case 'image':
+				const imageValue = value ? `
+					<div class="mb-2">
+						<p class="text-sm text-gray-600">Immagine attuale:</p>
+						<img src="${value.startsWith('http') ? value : `http://localhost:8000${value.startsWith('/') ? '' : '/media/'}${value}`}" alt="Preview" class="image-preview" onclick="window.open(this.src, '_blank')">
+					</div>
+				` : '';
+				widget = `
+					${imageValue}
+					<input type="file" id="${inputId}" name="${field.name}" class="form-input file-input" ${!value ? required : ''} accept="image/*">
+					${value ? '<input type="hidden" name="keep_' + field.name + '" value="' + value + '">' : ''}
+				`;
 				break;
 				
 			case 'foreign_key':
@@ -651,29 +759,38 @@ const { modelName } = Astro.params;
 	}
 
 	// Funzione per salvare record (separata per riuso)
-	async function saveRecord(formData, recordId = null) {
+	async function saveRecord(formData, recordId = null, hasFiles = false) {
 		const token = localStorage.getItem('authToken');
+		
+		// Prepara headers e body in base al tipo di dati
+		const headers = {
+			'Authorization': `Token ${token}`
+		};
+		
+		let body;
+		if (hasFiles) {
+			// Per i file, non impostare Content-Type (il browser lo farà automaticamente con boundary)
+			body = formData; // FormData object
+		} else {
+			// Per dati JSON normali
+			headers['Content-Type'] = 'application/json';
+			body = JSON.stringify(formData);
+		}
 		
 		let response;
 		if (recordId) {
 			// Modifica record esistente
 			response = await fetch(`http://localhost:8000/api/data/${modelName}/${recordId}/`, {
 				method: 'PUT',
-				headers: {
-					'Authorization': `Token ${token}`,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(formData)
+				headers,
+				body
 			});
 		} else {
 			// Crea nuovo record
 			response = await fetch(`http://localhost:8000/api/data/${modelName}/`, {
 				method: 'POST',
-				headers: {
-					'Authorization': `Token ${token}`,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(formData)
+				headers,
+				body
 			});
 		}
 
