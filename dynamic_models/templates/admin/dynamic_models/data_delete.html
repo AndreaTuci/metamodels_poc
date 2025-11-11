@@ -1,0 +1,120 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static dynamic_tags %}
+
+{% block title %}Elimina {{ meta_model.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_changelist' %}">Meta Models</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_change' meta_model.id %}">{{ meta_model.name }}</a>
+    &rsaquo; <a href="{% url 'dynamic_data_list' meta_model.id %}">Gestione Dati</a>
+    &rsaquo; Elimina
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="content-main">
+    <h1>Elimina {{ meta_model.name }}</h1>
+    
+    <div class="deleteconfirm">
+        <p>Sei sicuro di voler eliminare questo record?</p>
+        
+        <fieldset class="module aligned">
+            <h2>Dettagli Record (ID: {{ instance.pk }})</h2>
+            
+            {% for field in fields %}
+                <div class="form-row">
+                    <div>
+                        <label>{{ field.verbose_name|default:field.name }}:</label>
+                        <div class="readonly">
+                            {% with value=instance|lookup:field.name %}
+                                {% if value %}
+                                    {% if field.field_type == 'url' %}
+                                        <a href="{{ value }}" target="_blank">{{ value }}</a>
+                                    {% elif field.field_type == 'email' %}
+                                        <a href="mailto:{{ value }}">{{ value }}</a>
+                                    {% elif field.field_type == 'boolean' %}
+                                        {% if value %}
+                                            <img src="{% static 'admin/img/icon-yes.svg' %}" alt="True"> Sì
+                                        {% else %}
+                                            <img src="{% static 'admin/img/icon-no.svg' %}" alt="False"> No
+                                        {% endif %}
+                                    {% else %}
+                                        {{ value }}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </fieldset>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="submit-row">
+                <input type="submit" value="Sì, elimina" class="btn btn-danger">
+                <a href="{% url 'dynamic_data_list' meta_model.id %}" class="btn btn-secondary">
+                    Annulla
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.deleteconfirm {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.deleteconfirm p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.readonly {
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    min-height: 20px;
+}
+
+.text-muted {
+    color: #999;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    margin: 0 5px;
+    border: 1px solid;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-danger {
+    background: #ba2121;
+    color: white;
+    border-color: #ba2121;
+}
+
+.btn-secondary {
+    background: #f8f8f8;
+    color: #333;
+    border-color: #ddd;
+}
+</style>
+{% endblock %}

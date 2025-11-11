@@ -1,0 +1,4 @@
+Django==5.2.8
+djangorestframework>=3.14,<4
+# DB driver: using sqlite3 (builtin). If you use Postgres, add psycopg2-binary
+# psycopg2-binary>=2.9

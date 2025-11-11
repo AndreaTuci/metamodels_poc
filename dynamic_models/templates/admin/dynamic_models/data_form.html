@@ -1,0 +1,117 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_changelist' %}">Meta Models</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_change' meta_model.id %}">{{ meta_model.name }}</a>
+    &rsaquo; <a href="{% url 'dynamic_data_list' meta_model.id %}">Gestione Dati</a>
+    &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="content-main">
+    <form method="post" id="{{ meta_model.name|lower }}_form" novalidate>
+        {% csrf_token %}
+        
+        <div>
+            <h1>{{ title }}</h1>
+            
+            <fieldset class="module aligned">
+                {% for field in form %}
+                    <div class="form-row {% if field.errors %}errors{% endif %}">
+                        <div>
+                            {{ field.label_tag }}
+                            {% if field.field.required %}
+                                <span class="required">*</span>
+                            {% endif %}
+                            
+                            <div class="field-box">
+                                {{ field }}
+                                
+                                {% if field.help_text %}
+                                    <div class="help">{{ field.help_text }}</div>
+                                {% endif %}
+                                
+                                {% if field.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in field.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </fieldset>
+            
+            <div class="submit-row">
+                <input type="submit" value="Salva" class="default" name="_save">
+                {% if not instance %}
+                    <input type="submit" value="Salva e aggiungi un altro" class="default" name="_save_and_add_another">
+                {% endif %}
+                <p class="deletelink-box">
+                    <a href="{% url 'dynamic_data_list' meta_model.id %}" class="closelink">
+                        Annulla
+                    </a>
+                </p>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-focus sul primo campo visibile
+    const firstField = document.querySelector('form input:not([type="hidden"]), form select, form textarea');
+    if (firstField) {
+        firstField.focus();
+    }
+});
+</script>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.field-box {
+    margin-top: 5px;
+}
+
+.form-row.errors .field-box {
+    border: 1px solid #ba2121;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #ffe6e6;
+}
+
+.help {
+    font-size: 11px;
+    color: #666;
+    margin-top: 3px;
+}
+
+.required {
+    color: #ba2121;
+    font-weight: bold;
+}
+
+.submit-row {
+    padding: 12px 14px;
+    margin: 0 0 20px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: right;
+}
+
+.submit-row input {
+    margin: 0 5px;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list dynamic_tags %}
+
+{% block title %}{{ meta_model.name }} - Gestione Dati{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_changelist' %}">Meta Models</a>
+    &rsaquo; <a href="{% url 'admin:dynamic_models_metamodel_change' meta_model.id %}">{{ meta_model.name }}</a>
+    &rsaquo; Gestione Dati
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="results">
+    <div class="module filtered">
+        <div class="changelist-search">
+            <h1>{{ meta_model.name }} - Gestione Dati</h1>
+            
+            <div class="actions">
+                <a href="{% url 'dynamic_data_add' meta_model.id %}" class="addlink">
+                    Aggiungi {{ meta_model.name }}
+                </a>
+                <a href="{% url 'dynamic_data_export' meta_model.id %}?format=json" class="default">
+                    Esporta JSON
+                </a>
+            </div>
+            
+            <form method="get" id="changelist-search">
+                <div>
+                    <label for="searchbar"><img src="{% static 'admin/img/search.svg' %}" alt="Search"></label>
+                    <input type="text" size="40" name="q" value="{{ search_query }}" id="searchbar" autofocus>
+                    <input type="submit" value="Cerca">
+                    {% if search_query %}
+                        <a href="?" class="default">Pulisci</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="changelist-info">
+            <p class="paginator">
+                {{ total_count }} record{{ total_count|pluralize }} totali
+                {% if search_query %}
+                    ({{ page_obj.paginator.count }} corrispon{{ page_obj.paginator.count|pluralize:"de,denti" }} alla ricerca)
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="results">
+            <table id="result_list">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        {% for field in fields %}
+                            <th scope="col">{{ field.verbose_name|default:field.name }}</th>
+                        {% endfor %}
+                        <th scope="col">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                        <tr class="{% cycle 'row1' 'row2' %}">
+                            <th scope="row">{{ record.pk }}</th>
+                            {% for field in fields %}
+                                <td>
+                                    {% with value=record|lookup:field.name %}
+                                        {% if value %}
+                                            {% if field.field_type == 'url' %}
+                                                <a href="{{ value }}" target="_blank">{{ value|truncatechars:50 }}</a>
+                                            {% elif field.field_type == 'email' %}
+                                                <a href="mailto:{{ value }}">{{ value }}</a>
+                                            {% elif field.field_type == 'boolean' %}
+                                                {% if value %}
+                                                    <img src="{% static 'admin/img/icon-yes.svg' %}" alt="True">
+                                                {% else %}
+                                                    <img src="{% static 'admin/img/icon-no.svg' %}" alt="False">
+                                                {% endif %}
+                                            {% else %}
+                                                {{ value|truncatechars:50 }}
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                            {% endfor %}
+                            <td class="action-checkbox-column">
+                                <a href="{% url 'dynamic_data_edit' meta_model.id record.pk %}" class="changelink">Modifica</a> |
+                                <a href="{% url 'dynamic_data_delete' meta_model.id record.pk %}" class="deletelink">Elimina</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{{ fields|length|add:2 }}">
+                                {% if search_query %}
+                                    Nessun record trovato per la ricerca "{{ search_query }}".
+                                {% else %}
+                                    Nessun record presente.
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+            <p class="paginator">
+                <span class="this-page">
+                    Pagina {{ page_obj.number }} di {{ page_obj.paginator.num_pages }}
+                </span>
+                
+                {% if page_obj.has_previous %}
+                    <a href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}" class="prev">prima</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="prev">precedente</a>
+                {% endif %}
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="next">successiva</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}" class="next">ultima</a>
+                {% endif %}
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+.actions {
+    float: right;
+    margin-bottom: 10px;
+}
+.actions a {
+    margin-left: 10px;
+}
+.text-muted {
+    color: #999;
+}
+</style>
+{% endblock %}
