@@ -99,6 +99,20 @@ def create_dynamic_form(model_class, meta_model):
             except:
                 # Fallback al campo generico
                 pass
+        elif meta_field.field_type == 'file':
+            form_fields[field_name] = forms.FileField(
+                widget=forms.ClearableFileInput(),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'image':
+            form_fields[field_name] = forms.ImageField(
+                widget=forms.ClearableFileInput(),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
     
     # Crea la classe form dinamicamente
     DynamicForm = type('DynamicForm', (forms.ModelForm,), {
@@ -174,11 +188,22 @@ def dynamic_data_add(request, meta_model_id):
     DynamicForm = create_dynamic_form(model_class, meta_model)
     
     if request.method == 'POST':
-        form = DynamicForm(request.POST)
+        print(f"DEBUG - POST data: {request.POST}")
+        print(f"DEBUG - FILES data: {request.FILES}")
+        
+        form = DynamicForm(request.POST, request.FILES)  # Aggiungi request.FILES per i file upload
         if form.is_valid():
+            print(f"DEBUG - Form is valid. Cleaned data: {form.cleaned_data}")
             try:
                 with transaction.atomic():
                     instance = form.save()
+                    print(f"DEBUG - Instance saved with ID: {instance.pk}")
+                    
+                    # Verifica i valori dei campi file salvati
+                    for field in meta_model.fields.filter(field_type__in=['file', 'image']):
+                        file_value = getattr(instance, field.name)
+                        print(f"DEBUG - Field {field.name}: {file_value} (type: {type(file_value)})")
+                    
                     messages.success(request, f'Record creato con successo (ID: {instance.pk})')
                     
                     # Redirect alla lista o continua ad aggiungere
@@ -187,7 +212,10 @@ def dynamic_data_add(request, meta_model_id):
                     else:
                         return redirect('dynamic_data_list', meta_model_id=meta_model.pk)
             except Exception as e:
+                print(f"DEBUG - Error saving: {e}")
                 messages.error(request, f'Errore durante il salvataggio: {str(e)}')
+        else:
+            print(f"DEBUG - Form errors: {form.errors}")
     else:
         form = DynamicForm()
     
@@ -219,7 +247,7 @@ def dynamic_data_edit(request, meta_model_id, object_id):
     DynamicForm = create_dynamic_form(model_class, meta_model)
     
     if request.method == 'POST':
-        form = DynamicForm(request.POST, instance=instance)
+        form = DynamicForm(request.POST, request.FILES, instance=instance)  # Aggiungi request.FILES
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -297,9 +325,25 @@ def dynamic_data_export(request, meta_model_id):
             record_data = {'id': record.pk}
             for field in fields:
                 value = getattr(record, field.name)
-                # Converte datetime e altri tipi non serializzabili
+                
+                # Gestisce diversi tipi di campi per la serializzazione JSON
                 if hasattr(value, 'isoformat'):
+                    # DateTime, Date, Time
                     value = value.isoformat()
+                elif hasattr(value, 'url') and hasattr(value, 'name'):
+                    # FileField, ImageField
+                    if value and value.name:  # Controlla che il campo non sia vuoto
+                        try:
+                            value = value.url  # Restituisce l'URL completo del file
+                        except ValueError:
+                            # Se il file non esiste più sul disco
+                            value = value.name if value.name else None
+                    else:
+                        value = None  # Campo vuoto
+                elif callable(value):
+                    # Skip dei metodi e delle funzioni
+                    continue
+                
                 record_data[field.name] = value
             data.append(record_data)
         

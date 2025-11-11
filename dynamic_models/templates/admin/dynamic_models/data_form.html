@@ -64,7 +64,7 @@
 
 {% block content %}
 <div class="content-main">
-    <form method="post" id="{{ meta_model.name|lower }}_form" novalidate>
+    <form method="post" id="{{ meta_model.name|lower }}_form" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         
         <div>

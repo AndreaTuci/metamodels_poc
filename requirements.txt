@@ -3,3 +3,4 @@ djangorestframework>=3.14,<4
 django-cors-headers>=4.0,<5
 # DB driver: using sqlite3 (builtin). If you use Postgres, add psycopg2-binary
 # psycopg2-binary>=2.9
+pillow

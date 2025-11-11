@@ -131,6 +131,7 @@ class DynamicModelManager:
         Registra il modello dinamico nell'admin per la sidebar
         """
         from django.contrib import admin
+        from django import forms
         
         # Rimuovi registrazione esistente se presente
         if model_class in admin.site._registry:
@@ -149,17 +150,39 @@ class DynamicModelManager:
         list_filter = [field.name for field in meta_model.fields.all() 
                       if field.field_type in ['boolean', 'foreign_key']][:3]
         
+        # Controlla se ci sono campi file/image per creare un form personalizzato
+        has_file_fields = any(field.field_type in ['file', 'image'] 
+                             for field in meta_model.fields.all())
+        
+        admin_attrs = {
+            'list_display': list_display,
+            'search_fields': search_fields,
+            'list_filter': list_filter,
+            'list_per_page': 25,
+            'ordering': ['-id'],
+            'readonly_fields': ['id'] if 'id' in field_names else [],
+        }
+        
+        # Se ci sono campi file, crea un form personalizzato
+        if has_file_fields:
+            # Crea un form dinamico che gestisce i file
+            form_attrs = {'Meta': type('Meta', (), {
+                'model': model_class,
+                'fields': '__all__'
+            })}
+            
+            dynamic_form_class = type(
+                f'{meta_model.name}Form',
+                (forms.ModelForm,),
+                form_attrs
+            )
+            
+            admin_attrs['form'] = dynamic_form_class
+        
         dynamic_admin_class = type(
             f'{meta_model.name}Admin',
             (admin.ModelAdmin,),
-            {
-                'list_display': list_display,
-                'search_fields': search_fields,
-                'list_filter': list_filter,
-                'list_per_page': 25,
-                'ordering': ['-id'],
-                'readonly_fields': ['id'] if 'id' in field_names else [],
-            }
+            admin_attrs
         )
         
         # Registra nell'admin

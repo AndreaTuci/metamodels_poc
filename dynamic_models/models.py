@@ -20,6 +20,8 @@ class MetaModel(models.Model):
         ('foreign_key', 'Relazione'),
         ('email', 'Email'),
         ('url', 'URL'),
+        ('file', 'File'),
+        ('image', 'Immagine'),
     ]
     
     name = models.CharField(max_length=100, unique=True, help_text="Nome del modello (es. 'Product')")
@@ -86,6 +88,8 @@ class MetaField(models.Model):
         ('one_to_one', 'Relazione uno a uno'),
         ('email', 'Email'),
         ('url', 'URL'),
+        ('file', 'File'),
+        ('image', 'Immagine'),
     ]
     
     RELATION_DELETE_OPTIONS = [
@@ -213,6 +217,14 @@ class MetaField(models.Model):
         
         elif self.field_type == 'url':
             return models.URLField(**field_kwargs)
+        
+        elif self.field_type == 'file':
+            upload_to = self.field_params.get('upload_to', 'uploads/')
+            return models.FileField(upload_to=upload_to, **field_kwargs)
+        
+        elif self.field_type == 'image':
+            upload_to = self.field_params.get('upload_to', 'images/')
+            return models.ImageField(upload_to=upload_to, **field_kwargs)
         
         elif self.field_type in ['foreign_key', 'one_to_one', 'many_to_many']:
             return self._create_relational_field(field_kwargs)
@@ -418,6 +430,12 @@ class MetaField(models.Model):
                         errors['field_params'] = 'decimal_places non può essere maggiore di max_digits'
                 except (ValueError, TypeError):
                     errors['field_params'] = 'decimal_places deve essere un numero'
+        
+        # Validazione parametri per campi file
+        if self.field_type in ['file', 'image']:
+            upload_to = self.field_params.get('upload_to')
+            if upload_to is not None and not isinstance(upload_to, str):
+                errors['field_params'] = 'upload_to deve essere una stringa (percorso cartella)'
         
         if errors:
             raise ValidationError(errors)

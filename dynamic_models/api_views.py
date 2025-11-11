@@ -2,6 +2,7 @@ from rest_framework import viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Model
 from .models import MetaModel, MetaField
 from .dynamic_manager import dynamic_model_manager
@@ -146,6 +147,7 @@ class DynamicModelViewSet(viewsets.ModelViewSet):
     ViewSet generico per gestire i dati dei modelli dinamici
     """
     permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Supporto per file upload
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -183,16 +185,45 @@ class DynamicModelViewSet(viewsets.ModelViewSet):
         if not self.model_class:
             return serializers.Serializer
         
+        # Controlla se ci sono campi file/image nel modello
+        has_file_fields = False
+        if self.meta_model:
+            has_file_fields = any(field.field_type in ['file', 'image'] 
+                                for field in self.meta_model.fields.all())
+        
         # Crea un serializer dinamico
         meta_class = type('Meta', (), {
             'model': self.model_class,
             'fields': '__all__'
         })
         
+        serializer_attrs = {'Meta': meta_class}
+        
+        # Se ci sono campi file, aggiungi metodi per gestirli correttamente
+        if has_file_fields:
+            def to_representation(self, instance):
+                """Override per gestire la rappresentazione dei file"""
+                ret = super(type(self), self).to_representation(instance)
+                
+                # Converti i percorsi dei file in URL complete
+                from django.conf import settings
+                from django.utils.html import format_html
+                
+                for field in self.Meta.model._meta.get_fields():
+                    if hasattr(field, 'upload_to') and field.name in ret:
+                        file_value = ret[field.name]
+                        if file_value:
+                            if not file_value.startswith('http'):
+                                ret[field.name] = settings.MEDIA_URL + file_value
+                
+                return ret
+            
+            serializer_attrs['to_representation'] = to_representation
+        
         serializer_class = type(
             f'{self.model_class.__name__}Serializer',
             (serializers.ModelSerializer,),
-            {'Meta': meta_class}
+            serializer_attrs
         )
         
         return serializer_class
