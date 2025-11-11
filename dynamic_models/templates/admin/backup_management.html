@@ -1,0 +1,175 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extrahead %}
+<style>
+.backup-card {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.backup-meta {
+    color: #666;
+    font-size: 0.9em;
+    margin: 5px 0;
+}
+
+.backup-actions {
+    margin-top: 10px;
+}
+
+.btn-restore {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.btn-restore:hover {
+    background-color: #218838;
+}
+
+.status-box {
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.create-backup-form {
+    background: #f0f8ff;
+    border: 1px solid #007cba;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 20px 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="module">
+    <h1>{{ title }}</h1>
+    
+    <!-- Status Box -->
+    <div class="status-box" id="backup-status">
+        <h3>📊 Stato Backup</h3>
+        <p>Caricamento informazioni...</p>
+    </div>
+    
+    <!-- Crea nuovo backup -->
+    <div class="create-backup-form">
+        <h3>🔧 Crea Nuovo Backup</h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_backup">
+            <label for="model_name">Nome modello (opzionale):</label>
+            <input type="text" id="model_name" name="model_name" placeholder="Lascia vuoto per backup generale">
+            <button type="submit">📦 Crea Backup</button>
+        </form>
+    </div>
+    
+    <!-- Cleanup backup -->
+    <div class="create-backup-form">
+        <h3>🗑️ Pulizia Backup</h3>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="cleanup_backups">
+            <label for="days">Mantieni backup degli ultimi giorni:</label>
+            <input type="number" id="days" name="days" value="7" min="1">
+            <button type="submit">🧹 Pulisci Backup</button>
+        </form>
+    </div>
+    
+    <!-- Lista backup -->
+    <h3>📋 Backup Disponibili</h3>
+    
+    {% if backups %}
+        <div id="backup-list">
+            {% for backup in backups %}
+            <div class="backup-card">
+                <strong>📁 {{ backup.backup_path|basename }}</strong>
+                <div class="backup-meta">
+                    📅 Data: {{ backup.timestamp }}
+                </div>
+                <div class="backup-meta">
+                    🔧 Operazione: {{ backup.operation }}
+                </div>
+                {% if backup.model_name %}
+                <div class="backup-meta">
+                    📊 Modello: {{ backup.model_name }}
+                </div>
+                {% endif %}
+                
+                <div class="backup-actions">
+                    <button class="btn-restore" onclick="restoreBackup('{{ backup.backup_path }}')">
+                        🔄 Ripristina
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Nessun backup disponibile.</p>
+    {% endif %}
+    
+</div>
+
+<script>
+function restoreBackup(backupPath) {
+    if (!confirm(`⚠️ ATTENZIONE: Questa operazione sovrascriverà il database corrente!\n\nRipristinare il backup?\n${backupPath}`)) {
+        return;
+    }
+    
+    fetch('{% url "admin:restore_backup" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: 'backup_path=' + encodeURIComponent(backupPath)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('❌ Errore durante il ripristino: ' + error);
+    });
+}
+
+// Carica stato backup
+function loadBackupStatus() {
+    fetch('{% url "admin:backup_status" %}')
+    .then(response => response.json())
+    .then(data => {
+        const statusBox = document.getElementById('backup-status');
+        statusBox.innerHTML = `
+            <h3>📊 Stato Backup</h3>
+            <p><strong>Numero backup:</strong> ${data.total_backups}</p>
+            <p><strong>Dimensione totale:</strong> ${data.total_size_mb} MB</p>
+            <p><strong>Directory backup:</strong> ${data.backup_dir}</p>
+        `;
+    })
+    .catch(error => {
+        console.error('Errore caricamento stato:', error);
+    });
+}
+
+// Carica stato al load della pagina
+document.addEventListener('DOMContentLoaded', loadBackupStatus);
+</script>
+
+{% endblock %}

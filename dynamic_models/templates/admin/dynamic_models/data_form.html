@@ -3,6 +3,55 @@
 
 {% block title %}{{ title }}{% endblock %}
 
+{% block extrahead %}
+{{ form.media.css }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/forms.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/widgets.css' %}">
+
+<style>
+.field-box {
+    margin-top: 5px;
+}
+
+.form-row.errors .field-box {
+    border: 1px solid #ba2121;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #ffe6e6;
+}
+
+.help {
+    font-size: 11px;
+    color: #666;
+    margin-top: 3px;
+}
+
+.required {
+    color: #ba2121;
+    font-weight: bold;
+}
+
+.submit-row {
+    padding: 12px 14px;
+    margin: 0 0 20px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: right;
+}
+
+.submit-row input {
+    margin: 0 5px;
+}
+</style>
+{% endblock %}
+
+{% block extrajs %}
+{{ form.media.js }}
+<script src="{% static 'admin/js/core.js' %}"></script>
+<script src="{% static 'admin/js/admin/RelatedObjectLookups.js' %}"></script>
+{% endblock %}
+
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
@@ -74,44 +123,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{% endblock %}
-
-{% block extrahead %}
-{{ block.super }}
-<style>
-.field-box {
-    margin-top: 5px;
-}
-
-.form-row.errors .field-box {
-    border: 1px solid #ba2121;
-    border-radius: 4px;
-    padding: 5px;
-    background-color: #ffe6e6;
-}
-
-.help {
-    font-size: 11px;
-    color: #666;
-    margin-top: 3px;
-}
-
-.required {
-    color: #ba2121;
-    font-weight: bold;
-}
-
-.submit-row {
-    padding: 12px 14px;
-    margin: 0 0 20px;
-    background: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    text-align: right;
-}
-
-.submit-row input {
-    margin: 0 5px;
-}
-</style>
 {% endblock %}

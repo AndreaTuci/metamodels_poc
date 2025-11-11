@@ -195,3 +195,26 @@ class MetaFieldAdmin(admin.ModelAdmin):
     
     class Media:
         js = ('admin/js/dynamic_field_admin.js',)
+
+
+# Aggiungi link personalizzato per gestione backup nell'admin
+def backup_management_link():
+    """Link per accedere alla gestione backup"""
+    from django.urls import reverse
+    from django.utils.html import format_html
+    
+    return format_html(
+        '<a href="{}">💾 Gestione Backup Database</a>',
+        reverse('backup_management')
+    )
+
+# Personalizza l'admin per aggiungere link alla gestione backup
+from django.contrib.admin import AdminSite
+from django.contrib import admin
+
+# Override del template admin per aggiungere link backup
+def custom_admin_index(request):
+    """Vista personalizzata per l'indice admin"""
+    context = admin.site.each_context(request)
+    context['backup_management_url'] = '/dynamic_models/backup-management/'
+    return admin.site.index(request, extra_context=context)

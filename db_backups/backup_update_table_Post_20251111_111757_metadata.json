@@ -1,0 +1,7 @@
+{
+  "timestamp": "20251111_111757",
+  "operation": "update_table",
+  "model_name": "Post",
+  "db_path": "/home/utente/lavoro/labs/meta-model/metamodel_poc/db.sqlite3",
+  "backup_path": "db_backups/backup_update_table_Post_20251111_111757.sqlite3"
+}

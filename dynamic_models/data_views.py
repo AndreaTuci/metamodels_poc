@@ -6,9 +6,110 @@ from django.urls import reverse
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.forms.models import modelform_factory
+from django import forms
+from django.contrib.admin import widgets
 from .models import MetaModel, MetaField
 from .dynamic_manager import dynamic_model_manager
 import json
+
+
+def create_dynamic_form(model_class, meta_model):
+    """
+    Crea un form dinamico con i widget appropriati per ogni tipo di campo
+    """
+    form_fields = {}
+    
+    # Itera sui MetaField per determinare i widget
+    for meta_field in meta_model.fields.all():
+        field_name = meta_field.name
+        
+        # Ottieni il Django field dal modello
+        try:
+            django_field = model_class._meta.get_field(field_name)
+        except:
+            continue
+        
+        # Determina il widget appropriato in base al tipo
+        if meta_field.field_type == 'date':
+            form_fields[field_name] = forms.DateField(
+                widget=forms.DateInput(attrs={'type': 'date'}),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'datetime':
+            form_fields[field_name] = forms.DateTimeField(
+                widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'text':
+            form_fields[field_name] = forms.CharField(
+                widget=forms.Textarea(attrs={'rows': 4, 'cols': 40}),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'email':
+            form_fields[field_name] = forms.EmailField(
+                widget=forms.EmailInput(),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'url':
+            form_fields[field_name] = forms.URLField(
+                widget=forms.URLInput(),
+                required=meta_field.required,
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type == 'boolean':
+            form_fields[field_name] = forms.BooleanField(
+                widget=forms.CheckboxInput(),
+                required=False,  # BooleanField è sempre opzionale in Django
+                help_text=meta_field.help_text,
+                label=meta_field.verbose_name or field_name.title()
+            )
+        elif meta_field.field_type in ['foreign_key', 'one_to_one']:
+            # Per le relazioni, usa il widget di selezione
+            try:
+                related_model = django_field.related_model
+                form_fields[field_name] = forms.ModelChoiceField(
+                    queryset=related_model.objects.all(),
+                    widget=widgets.ForeignKeyRawIdWidget(django_field.remote_field, admin_site=None),
+                    required=meta_field.required,
+                    help_text=meta_field.help_text,
+                    label=meta_field.verbose_name or field_name.title()
+                )
+            except:
+                # Fallback al campo generico
+                pass
+        elif meta_field.field_type == 'many_to_many':
+            try:
+                related_model = django_field.related_model
+                form_fields[field_name] = forms.ModelMultipleChoiceField(
+                    queryset=related_model.objects.all(),
+                    widget=widgets.FilteredSelectMultiple(field_name, False),
+                    required=meta_field.required,
+                    help_text=meta_field.help_text,
+                    label=meta_field.verbose_name or field_name.title()
+                )
+            except:
+                # Fallback al campo generico
+                pass
+    
+    # Crea la classe form dinamicamente
+    DynamicForm = type('DynamicForm', (forms.ModelForm,), {
+        **form_fields,
+        'Meta': type('Meta', (), {
+            'model': model_class,
+            'fields': '__all__'
+        })
+    })
+    
+    return DynamicForm
 
 
 @staff_member_required
@@ -69,12 +170,8 @@ def dynamic_data_add(request, meta_model_id):
         messages.error(request, f'Modello "{meta_model.name}" non trovato. Crea prima la tabella.')
         return redirect('admin:dynamic_models_metamodel_changelist')
     
-    # Crea un form dinamicamente
-    DynamicForm = modelform_factory(
-        model_class,
-        fields='__all__',
-        exclude=['id']
-    )
+    # Crea un form dinamicamente con widget appropriati
+    DynamicForm = create_dynamic_form(model_class, meta_model)
     
     if request.method == 'POST':
         form = DynamicForm(request.POST)
@@ -118,12 +215,8 @@ def dynamic_data_edit(request, meta_model_id, object_id):
     
     instance = get_object_or_404(model_class, pk=object_id)
     
-    # Crea un form dinamicamente
-    DynamicForm = modelform_factory(
-        model_class,
-        fields='__all__',
-        exclude=['id']
-    )
+    # Crea un form dinamicamente con widget appropriati
+    DynamicForm = create_dynamic_form(model_class, meta_model)
     
     if request.method == 'POST':
         form = DynamicForm(request.POST, instance=instance)

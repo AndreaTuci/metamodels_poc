@@ -5,6 +5,7 @@ from .data_views import (
     dynamic_data_list, dynamic_data_add, dynamic_data_edit, 
     dynamic_data_delete, dynamic_data_export
 )
+from .backup_views import backup_management_view, restore_backup_view, backup_status_api
 
 # Router per le API
 router = DefaultRouter()
@@ -38,4 +39,9 @@ urlpatterns = [
     path('data/<int:meta_model_id>/<int:object_id>/', dynamic_data_edit, name='dynamic_data_edit'),
     path('data/<int:meta_model_id>/<int:object_id>/delete/', dynamic_data_delete, name='dynamic_data_delete'),
     path('data/<int:meta_model_id>/export/', dynamic_data_export, name='dynamic_data_export'),
+    
+    # Admin backup management
+    path('backup-management/', backup_management_view, name='backup_management'),
+    path('restore-backup/', restore_backup_view, name='restore_backup'),
+    path('backup-status/', backup_status_api, name='backup_status'),
 ]
