@@ -5,9 +5,12 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="Gestione Dati">
 	<div class="container">
 		<div class="card">
-			<h2>Seleziona un Modello per Gestire i Dati</h2>
-			<div id="models-list">
-				<p>Caricamento modelli...</p>
+			<div style="padding: 1.5rem 1.5rem 0 1.5rem; margin-bottom: 1.5rem;">
+				<h2 style="margin: 0; color: #2c3e50;">📊 Gestione Dati</h2>
+				<p style="margin: 0.5rem 0 0 0; color: #7f8c8d;">Seleziona un modello per visualizzare e modificare i suoi dati</p>
+			</div>
+			<div id="models-list" style="padding: 0 1.5rem 1.5rem 1.5rem;">
+				<p>🔄 Caricamento modelli...</p>
 			</div>
 		</div>
 	</div>
@@ -23,7 +26,14 @@ import Layout from '../layouts/Layout.astro';
 				if (!listEl) return;
 				
 				if (models.length === 0) {
-					listEl.innerHTML = '<p>Nessun modello trovato. <a href="/models/new">Crea il primo modello</a></p>';
+					listEl.innerHTML = `
+						<div style="text-align: center; padding: 3rem; color: #7f8c8d;">
+							<div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+							<h3 style="margin-bottom: 1rem; color: #2c3e50;">Nessun modello disponibile</h3>
+							<p style="margin-bottom: 1.5rem;">Crea prima un modello per gestire i dati</p>
+							<a href="/models/new" class="btn btn-primary">➕ Crea un modello</a>
+						</div>
+					`;
 					return;
 				}
 				
@@ -33,13 +43,13 @@ import Layout from '../layouts/Layout.astro';
 					if (model.is_active) {
 						html += `
 							<div class="card" style="border-left: 4px solid #3498db;">
-								<div style="display: flex; justify-content: space-between; align-items: center;">
-									<div>
-										<h3>${model.name}</h3>
-										<p><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
-										<p><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
+								<div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;">
+									<div style="flex: 1; margin-right: 1rem;">
+										<h3 style="margin: 0 0 1rem 0; color: #2c3e50;">${model.name}</h3>
+										<p style="margin: 0.25rem 0;"><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
+										<p style="margin: 0.25rem 0;"><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
 									</div>
-									<a href="/data/${model.name}" class="btn">📊 Gestisci Dati</a>
+									<a href="/data/${model.name}" class="btn btn-primary">📊 Gestisci Dati</a>
 								</div>
 							</div>
 						`;
@@ -52,7 +62,14 @@ import Layout from '../layouts/Layout.astro';
 			} catch (error) {
 				const listEl = document.getElementById('models-list');
 				if (listEl) {
-					listEl.innerHTML = '<p style="color: red;">❌ Errore nel caricamento dei modelli. Verifica che il server Django sia attivo.</p>';
+					listEl.innerHTML = `
+						<div style="text-align: center; padding: 3rem; color: #e74c3c;">
+							<div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+							<h3 style="margin-bottom: 1rem; color: #c0392b;">Errore di connessione</h3>
+							<p style="margin-bottom: 1.5rem;">Impossibile caricare i modelli. Verifica che il server Django sia attivo.</p>
+							<button onclick="loadModels()" class="btn btn-primary">🔄 Riprova</button>
+						</div>
+					`;
 				}
 			}
 		}

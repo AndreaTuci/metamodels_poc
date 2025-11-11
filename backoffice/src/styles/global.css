@@ -388,3 +388,27 @@ html, body {
 
 .w-full { width: 100%; }
 .h-full { height: 100%; }
+
+/* Utility per i componenti Vue */
+.space-y-4 > * + * {
+	margin-top: 1rem;
+}
+
+.space-y-6 > * + * {
+	margin-top: 1.5rem;
+}
+
+/* Fix per la compatibilità con Astro+Vue */
+[v-cloak] {
+	display: none !important;
+}
+
+/* Animazioni per i feedback */
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(-10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.alert.alert-success {
+	animation: fadeIn 0.3s ease-out;
+}

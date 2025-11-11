@@ -1,0 +1,137 @@
+---
+// Esempio di pagina che usa i componenti Vue per i campi dinamici
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Test Componenti Fields - MetaModel CMS">
+	<div class="page-header">
+		<h1 class="page-title">🧪 Test Componenti Fields</h1>
+		<p class="page-subtitle">Esempio di utilizzo dei componenti Vue per i campi dinamici</p>
+	</div>
+
+	<div class="card">
+		<div class="card-header">
+			<h2 class="card-title">Form Dinamico</h2>
+		</div>
+		<div class="card-body">
+			<div id="dynamic-form-container"></div>
+		</div>
+	</div>
+</Layout>
+
+<script>
+import { createApp } from 'vue'
+import { DynamicForm } from '../components/fields/index.js'
+
+// Esempio di configurazione campi
+const sampleFields = [
+	{
+		name: 'title',
+		field_type: 'CharField',
+		verbose_name: 'Titolo',
+		help_text: 'Il titolo del contenuto',
+		required: true
+	},
+	{
+		name: 'description',
+		field_type: 'TextField',
+		verbose_name: 'Descrizione',
+		help_text: 'Descrizione dettagliata',
+		required: false
+	},
+	{
+		name: 'price',
+		field_type: 'FloatField',
+		verbose_name: 'Prezzo',
+		help_text: 'Prezzo in euro',
+		required: true
+	},
+	{
+		name: 'active',
+		field_type: 'BooleanField',
+		verbose_name: 'Attivo',
+		help_text: 'Se il contenuto è attivo',
+		required: false
+	},
+	{
+		name: 'publish_date',
+		field_type: 'DateField',
+		verbose_name: 'Data Pubblicazione',
+		required: false
+	},
+	{
+		name: 'email',
+		field_type: 'EmailField',
+		verbose_name: 'Email di contatto',
+		required: false
+	},
+	{
+		name: 'website',
+		field_type: 'URLField',
+		verbose_name: 'Sito web',
+		required: false
+	}
+];
+
+// Dati iniziali di esempio
+const initialData = {
+	title: 'Esempio Titolo',
+	description: 'Questa è una descrizione di esempio',
+	price: 29.99,
+	active: true,
+	publish_date: '2024-01-01',
+	email: 'test@esempio.com',
+	website: 'https://esempio.com'
+};
+
+// Crea l'app Vue
+const app = createApp({
+	components: {
+		DynamicForm
+	},
+	data() {
+		return {
+			fields: sampleFields,
+			initialData: initialData,
+			isSubmitting: false
+		}
+	},
+	methods: {
+		handleSubmit(formData) {
+			console.log('Form submitted:', formData);
+			
+			this.isSubmitting = true;
+			
+			// Simula una chiamata API
+			setTimeout(() => {
+				this.isSubmitting = false;
+				alert('Dati salvati con successo!');
+			}, 1000);
+		},
+		
+		handleCancel() {
+			console.log('Form cancelled');
+		},
+		
+		handleFieldChange(formData) {
+			console.log('Field changed:', formData);
+		}
+	},
+	template: `
+		<DynamicForm
+			:fields="fields"
+			:initial-data="initialData"
+			:is-submitting="isSubmitting"
+			@submit="handleSubmit"
+			@cancel="handleCancel"
+			@field-change="handleFieldChange"
+		/>
+	`
+});
+
+// Mount dell'app
+document.addEventListener('DOMContentLoaded', () => {
+	app.mount('#dynamic-form-container');
+});
+</script>
+</Layout>

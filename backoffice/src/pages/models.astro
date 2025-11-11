@@ -5,12 +5,15 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="Gestione Modelli">
 	<div class="container">
 		<div class="card">
-			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-				<h2>Modelli Dinamici</h2>
-				<a href="/models/new" class="btn btn-success">+ Nuovo Modello</a>
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding: 1.5rem 1.5rem 0 1.5rem;">
+				<div>
+					<h2 style="margin: 0; color: #2c3e50;">🏗️ Gestione Modelli Dinamici</h2>
+					<p style="margin: 0.5rem 0 0 0; color: #7f8c8d;">Crea e gestisci i tuoi modelli di dati dinamici</p>
+				</div>
+				<a href="/models/new" class="btn btn-success">➕ Nuovo Modello</a>
 			</div>
-			<div id="models-list">
-				<p>Caricamento modelli...</p>
+			<div id="models-list" style="padding: 0 1.5rem 1.5rem 1.5rem;">
+				<p>🔄 Caricamento modelli...</p>
 			</div>
 		</div>
 	</div>
@@ -28,7 +31,14 @@ import Layout from '../layouts/Layout.astro';
 				if (!listEl) return;
 				
 				if (models.length === 0) {
-					listEl.innerHTML = '<p>Nessun modello trovato. <a href="/models/new">Crea il primo modello</a></p>';
+					listEl.innerHTML = `
+						<div style="text-align: center; padding: 3rem; color: #7f8c8d;">
+							<div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+							<h3 style="margin-bottom: 1rem; color: #2c3e50;">Nessun modello ancora creato</h3>
+							<p style="margin-bottom: 1.5rem;">Inizia creando il tuo primo modello dinamico</p>
+							<a href="/models/new" class="btn btn-primary">➕ Crea il primo modello</a>
+						</div>
+					`;
 					return;
 				}
 				
@@ -37,15 +47,15 @@ import Layout from '../layouts/Layout.astro';
 				models.forEach((model) => {
 					html += `
 						<div class="card" style="border-left: 4px solid ${model.is_active ? '#27ae60' : '#e74c3c'};">
-							<div style="display: flex; justify-content: between; align-items: center;">
-								<div style="flex: 1;">
-									<h3>${model.name}</h3>
-									<p><strong>Tabella:</strong> ${model.table_name}</p>
-									<p><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
-									<p><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
-									<p><strong>Stato:</strong> ${model.is_active ? '✅ Attivo' : '❌ Inattivo'}</p>
+							<div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem;">
+								<div style="flex: 1; margin-right: 1rem;">
+									<h3 style="margin: 0 0 1rem 0; color: #2c3e50;">${model.name}</h3>
+									<p style="margin: 0.25rem 0;"><strong>Tabella:</strong> ${model.table_name}</p>
+									<p style="margin: 0.25rem 0;"><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
+									<p style="margin: 0.25rem 0;"><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
+									<p style="margin: 0.25rem 0;"><strong>Stato:</strong> ${model.is_active ? '✅ Attivo' : '❌ Inattivo'}</p>
 								</div>
-								<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+								<div style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 120px;">
 									<a href="/models/${model.id}/edit" class="btn">✏️ Modifica</a>
 									<a href="/data/${model.name}" class="btn">📊 Dati</a>
 									<button onclick="createTable(${model.id})" class="btn btn-success">🔧 Crea Tabella</button>
@@ -63,7 +73,14 @@ import Layout from '../layouts/Layout.astro';
 			} catch (error) {
 				const listEl = document.getElementById('models-list');
 				if (listEl) {
-					listEl.innerHTML = '<p style="color: red;">❌ Errore nel caricamento dei modelli. Verifica che il server Django sia attivo.</p>';
+					listEl.innerHTML = `
+						<div style="text-align: center; padding: 3rem; color: #e74c3c;">
+							<div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+							<h3 style="margin-bottom: 1rem; color: #c0392b;">Errore di connessione</h3>
+							<p style="margin-bottom: 1.5rem;">Impossibile caricare i modelli. Verifica che il server Django sia attivo.</p>
+							<button onclick="loadModels()" class="btn btn-primary">🔄 Riprova</button>
+						</div>
+					`;
 				}
 			}
 		}

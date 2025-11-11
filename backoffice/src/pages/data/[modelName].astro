@@ -133,19 +133,7 @@ const { modelName } = Astro.params;
 				<h3 class="card-title" id="modal-title">Nuovo Record</h3>
 			</div>
 			<div class="card-body">
-				<form id="record-form">
-					<input type="hidden" id="record-id" value="">
-					<div id="form-fields">
-						<!-- Campi generati dinamicamente -->
-					</div>
-					<div class="flex gap-3 mt-4">
-						<button type="button" class="btn btn-secondary" onclick="closeRecordModal()">Annulla</button>
-						<button type="submit" class="btn btn-primary" id="save-record-btn">
-							<span id="save-record-text">💾 Salva</span>
-							<div id="save-record-spinner" class="loading" style="display: none;"></div>
-						</button>
-					</div>
-				</form>
+				<div id="vue-form-container"></div>
 			</div>
 		</div>
 	</div>
@@ -207,6 +195,74 @@ const { modelName } = Astro.params;
 	.table-responsive {
 		overflow-x: auto;
 		max-width: 100%;
+	}
+
+	/* Form Styles */
+	.form-group {
+		margin-bottom: 1.5rem;
+	}
+
+	.form-label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #374151;
+	}
+
+	.form-input, .form-textarea, .form-select {
+		width: 100%;
+		padding: 0.75rem;
+		border: 1px solid #d1d5db;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		transition: border-color 0.2s, box-shadow 0.2s;
+		background: white;
+	}
+
+	.form-input:focus, .form-textarea:focus, .form-select:focus {
+		outline: none;
+		border-color: #3b82f6;
+		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+	}
+
+	.form-textarea {
+		resize: vertical;
+		min-height: 100px;
+	}
+
+	.form-checkbox {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.form-checkbox input[type="checkbox"] {
+		width: 1rem;
+		height: 1rem;
+		accent-color: #3b82f6;
+	}
+
+	.required {
+		color: #ef4444;
+	}
+
+	.help-text {
+		margin-top: 0.25rem;
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+
+	.form-actions {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 2rem;
+		padding-top: 1rem;
+		border-top: 1px solid #e2e8f0;
+	}
+
+	.space-y-4 > * + * {
+		margin-top: 1rem;
 	}
 	
 	@media (max-width: 768px) {
@@ -341,26 +397,25 @@ const { modelName } = Astro.params;
 		if (value === null || value === undefined) return '-';
 		
 		switch (fieldType) {
-			case 'BooleanField':
+			case 'boolean':
 				return value ? '✅ Sì' : '❌ No';
-			case 'DateField':
+			case 'date':
 				return new Date(value).toLocaleDateString('it-IT');
-			case 'DateTimeField':
+			case 'datetime':
 				return new Date(value).toLocaleString('it-IT');
-			case 'URLField':
+			case 'url':
 				return `<a href="${value}" target="_blank" class="text-primary">${value}</a>`;
-			case 'EmailField':
+			case 'email':
 				return `<a href="mailto:${value}" class="text-primary">${value}</a>`;
 			default:
 				return value.toString().length > 50 ? value.toString().substring(0, 50) + '...' : value;
 		}
 	}
 
-	// Modal functions
+	// Modal functions con Vue
 	function showAddModal() {
 		document.getElementById('modal-title')!.textContent = 'Nuovo Record';
-		document.getElementById('record-id')!.value = '';
-		generateFormFields();
+		createVueForm();
 		document.getElementById('record-modal')!.style.display = 'flex';
 	}
 
@@ -369,9 +424,296 @@ const { modelName } = Astro.params;
 		if (!record) return;
 
 		document.getElementById('modal-title')!.textContent = 'Modifica Record';
-		document.getElementById('record-id')!.value = id.toString();
-		generateFormFields(record);
+		createVueForm(record);
 		document.getElementById('record-modal')!.style.display = 'flex';
+	}
+
+	// Mappa i tipi Django field ai componenti Vue
+	const FIELD_COMPONENT_MAP = {
+		'CharField': 'CharField',
+		'TextField': 'TextField',  
+		'IntegerField': 'NumberField',
+		'FloatField': 'NumberField',
+		'BooleanField': 'BooleanField',
+		'DateField': 'DateField',
+		'DateTimeField': 'DateField',
+		'EmailField': 'EmailField',
+		'URLField': 'URLField',
+		'ForeignKey': 'SelectField' // Per le foreign key useremo un SelectField
+	};
+
+	// Crea il form (torniamo a HTML semplice ma con widget migliori)
+	function createVueForm(initialData = null) {
+		const container = document.getElementById('vue-form-container');
+		if (!container || !currentModel?.meta_fields) return;
+
+		const isEditing = !!initialData;
+		const formData = initialData || {};
+
+		// Genera HTML migliorato con widget specifici
+		container.innerHTML = `
+			<form id="record-form" class="space-y-4">
+				${currentModel.meta_fields.map(field => generateFieldWidget(field, formData[field.name])).join('')}
+				<div class="flex gap-3 mt-6 pt-4 border-t">
+					<button type="button" class="btn btn-secondary" onclick="closeRecordModal()">
+						Annulla
+					</button>
+					<button type="submit" class="btn btn-primary">
+						💾 ${isEditing ? 'Aggiorna' : 'Salva'}
+					</button>
+				</div>
+			</form>
+		`;
+
+		// Per le ForeignKey, imposta i valori attuali come data-attribute prima di caricare le opzioni
+		if (isEditing && initialData) {
+			currentModel.meta_fields.forEach(field => {
+				if (field.field_type === 'foreign_key' && formData[field.name]) {
+					const selectElement = document.querySelector(`select[data-foreign-key="${field.related_model || field.name}"]`);
+					if (selectElement) {
+						selectElement.setAttribute('data-current-value', formData[field.name]);
+					}
+				}
+			});
+		}
+
+		// Carica le opzioni per i campi ForeignKey
+		loadForeignKeyOptions();
+
+		// Attach event listener
+		const form = document.getElementById('record-form');
+		form.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const formData = new FormData(form);
+			const recordData = {};
+			
+			currentModel.meta_fields.forEach(field => {
+				const value = formData.get(field.name);
+				switch (field.field_type) {
+					case 'boolean':
+						recordData[field.name] = formData.has(field.name);
+						break;
+					case 'integer':
+						recordData[field.name] = value ? parseInt(value.toString()) : null;
+						break;
+					case 'decimal':
+						recordData[field.name] = value ? parseFloat(value.toString()) : null;
+						break;
+					case 'foreign_key':
+						recordData[field.name] = value ? parseInt(value.toString()) : null;
+						break;
+					default:
+						recordData[field.name] = value ? value.toString() : null;
+				}
+			});
+
+			try {
+				await saveRecord(recordData, isEditing ? initialData.id : null);
+				closeRecordModal();
+				showSuccessMessage(isEditing ? 'Record aggiornato con successo!' : 'Record creato con successo!');
+			} catch (error) {
+				console.error('Errore salvataggio:', error);
+				alert('❌ Errore nel salvataggio del record');
+			}
+		});
+	}
+
+	// Genera widget HTML specifici per ogni tipo di campo
+	function generateFieldWidget(field, value = '') {
+		const inputId = `field_${field.name}`;
+		const label = field.verbose_name || field.name;
+		const required = field.required ? 'required' : '';
+		const helpText = field.help_text ? `<p class="help-text">${field.help_text}</p>` : '';
+		
+		// Debug: mostra il tipo di campo effettivo
+		console.log(`Campo ${field.name}: tipo=${field.field_type}`, field);
+		
+		let widget = '';
+		
+		switch (field.field_type) {
+			case 'text':
+				widget = `<textarea id="${inputId}" name="${field.name}" class="form-textarea" ${required} rows="4" placeholder="Inserisci ${label.toLowerCase()}...">${value || ''}</textarea>`;
+				break;
+				
+			case 'boolean':
+				const checked = value ? 'checked' : '';
+				return `
+					<div class="form-group">
+						<div class="form-checkbox">
+							<input type="checkbox" id="${inputId}" name="${field.name}" ${checked}>
+							<label for="${inputId}">${label} ${field.required ? '<span class="required">*</span>' : ''}</label>
+						</div>
+						${helpText}
+					</div>
+				`;
+				
+			case 'integer':
+				widget = `<input type="number" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="Inserisci ${label.toLowerCase()}...">`;
+				break;
+				
+			case 'decimal':
+				widget = `<input type="number" step="0.01" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="Inserisci ${label.toLowerCase()}...">`;
+				break;
+				
+			case 'date':
+				widget = `<input type="date" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required}>`;
+				break;
+				
+			case 'datetime':
+				widget = `<input type="datetime-local" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required}>`;
+				break;
+				
+			case 'email':
+				widget = `<input type="email" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="esempio@email.com">`;
+				break;
+				
+			case 'url':
+				widget = `<input type="url" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="https://esempio.com">`;
+				break;
+				
+			case 'foreign_key':
+				// Select vuoto che verrà popolato dalla funzione loadForeignKeyOptions
+				widget = `
+					<select id="${inputId}" name="${field.name}" class="form-select" ${required} data-foreign-key="${field.related_model || field.name}">
+						<option value="">Caricamento opzioni...</option>
+					</select>
+				`;
+				break;
+				
+			default: // char
+				widget = `<input type="text" id="${inputId}" name="${field.name}" class="form-input" value="${value || ''}" ${required} placeholder="Inserisci ${label.toLowerCase()}...">`;
+		}
+
+		return `
+			<div class="form-group">
+				<label class="form-label" for="${inputId}">
+					${label} ${field.required ? '<span class="required">*</span>' : ''}
+				</label>
+				${widget}
+				${helpText}
+			</div>
+		`;
+	}
+
+	// Carica le opzioni per i campi ForeignKey
+	async function loadForeignKeyOptions() {
+		if (!currentModel?.meta_fields) return;
+		
+		const token = localStorage.getItem('authToken');
+		
+		for (const field of currentModel.meta_fields) {
+			if (field.field_type === 'foreign_key') {
+				try {
+					const selectElement = document.querySelector(`select[data-foreign-key="${field.related_model || field.name}"]`);
+					if (!selectElement) continue;
+					
+					// Determina il modello di riferimento
+					let relatedModel = field.related_model || field.to;
+					if (!relatedModel) {
+						// Prova a dedurlo dal nome del campo
+						relatedModel = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+					}
+					
+					const response = await fetch(`http://localhost:8000/api/data/${relatedModel}/`, {
+						headers: {
+							'Authorization': `Token ${token}`,
+							'Content-Type': 'application/json'
+						}
+					});
+					
+					if (response.ok) {
+						const data = await response.json();
+						const records = data.results || data;
+						
+						// Popola la select
+						selectElement.innerHTML = `
+							<option value="">Seleziona ${field.verbose_name || field.name}...</option>
+							${records.map(record => `
+								<option value="${record.id}">
+									${record.title || record.name || record.toString || `${relatedModel} #${record.id}`}
+								</option>
+							`).join('')}
+						`;
+						
+						// Se c'è un valore preselezionato, impostalo
+						const currentValue = selectElement.getAttribute('data-current-value');
+						if (currentValue) {
+							selectElement.value = currentValue;
+						}
+					} else {
+						selectElement.innerHTML = `<option value="">Errore nel caricamento</option>`;
+					}
+				} catch (error) {
+					console.error(`Errore nel caricamento opzioni per ${field.name}:`, error);
+				}
+			}
+		}
+	}
+
+	// Funzione per salvare record (separata per riuso)
+	async function saveRecord(formData, recordId = null) {
+		const token = localStorage.getItem('authToken');
+		
+		let response;
+		if (recordId) {
+			// Modifica record esistente
+			response = await fetch(`http://localhost:8000/api/data/${modelName}/${recordId}/`, {
+				method: 'PUT',
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(formData)
+			});
+		} else {
+			// Crea nuovo record
+			response = await fetch(`http://localhost:8000/api/data/${modelName}/`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(formData)
+			});
+		}
+
+		if (response.ok) {
+			const savedRecord = await response.json();
+			
+			// Aggiorna array locale
+			if (recordId) {
+				const index = currentData.findIndex(r => r.id === recordId);
+				if (index !== -1) {
+					currentData[index] = savedRecord;
+				}
+			} else {
+				currentData.push(savedRecord);
+			}
+
+			// Aggiorna UI
+			updateStats();
+			renderTable();
+			
+			// Feedback positivo
+			showSuccessMessage(recordId ? 'Record aggiornato con successo!' : 'Record creato con successo!');
+		} else {
+			const error = await response.json();
+			throw new Error(JSON.stringify(error));
+		}
+	}
+
+	// Funzione per mostrare messaggi di successo
+	function showSuccessMessage(message) {
+		const successMsg = document.createElement('div');
+		successMsg.className = 'alert alert-success';
+		successMsg.textContent = `✅ ${message}`;
+		successMsg.style.position = 'fixed';
+		successMsg.style.top = '20px';
+		successMsg.style.right = '20px';
+		successMsg.style.zIndex = '9999';
+		document.body.appendChild(successMsg);
+		
+		setTimeout(() => successMsg.remove(), 3000);
 	}
 
 	// Rendi le funzioni globalmente accessibili
@@ -393,57 +735,17 @@ const { modelName } = Astro.params;
 	};
 
 	function generateFormFields(record = null) {
-		const container = document.getElementById('form-fields')!;
-		
-		if (!currentModel || !currentModel.meta_fields) {
-			container.innerHTML = '<p class="text-muted">Nessun campo disponibile</p>';
-			return;
-		}
-
-		container.innerHTML = currentModel.meta_fields.map(field => {
-			const value = record ? (record[field.name] || '') : '';
-			const inputId = `field_${field.name}`;
-			
-			let input = '';
-			switch (field.field_type) {
-				case 'TextField':
-					input = `<textarea id="${inputId}" name="${field.name}" class="form-textarea" ${field.required ? 'required' : ''}>${value}</textarea>`;
-					break;
-				case 'BooleanField':
-					input = `<label class="form-checkbox"><input type="checkbox" id="${inputId}" name="${field.name}" ${value ? 'checked' : ''}> ${field.verbose_name || field.name}</label>`;
-					break;
-				case 'IntegerField':
-				case 'FloatField':
-					input = `<input type="number" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''} ${field.field_type === 'FloatField' ? 'step="0.01"' : ''}>`;
-					break;
-				case 'DateField':
-					input = `<input type="date" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
-					break;
-				case 'DateTimeField':
-					input = `<input type="datetime-local" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
-					break;
-				case 'EmailField':
-					input = `<input type="email" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
-					break;
-				case 'URLField':
-					input = `<input type="url" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
-					break;
-				default:
-					input = `<input type="text" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
-			}
-
-			return `
-				<div class="form-group">
-					${field.field_type !== 'BooleanField' ? `<label class="form-label" for="${inputId}">${field.verbose_name || field.name} ${field.required ? '*' : ''}</label>` : ''}
-					${input}
-					${field.help_text ? `<p class="text-xs text-muted mt-1">${field.help_text}</p>` : ''}
-				</div>
-			`;
-		}).join('');
+		// Questa funzione ora sarà gestita da Vue
+		console.log('Form fields will be handled by Vue components');
 	}
 
 	function closeRecordModal() {
 		document.getElementById('record-modal')!.style.display = 'none';
+		// Cleanup del form
+		const container = document.getElementById('vue-form-container');
+		if (container) {
+			container.innerHTML = '';
+		}
 	}
 
 	async function deleteRecord(id) {
@@ -490,120 +792,6 @@ const { modelName } = Astro.params;
 		document.getElementById('content')!.style.display = 'none';
 		await loadModelAndData();
 	}
-
-	// Submit form per salvare record
-	document.getElementById('record-form')?.addEventListener('submit', async (e) => {
-		e.preventDefault();
-		
-		const saveBtn = document.getElementById('save-record-btn');
-		const saveText = document.getElementById('save-record-text');
-		const saveSpinner = document.getElementById('save-record-spinner');
-		
-		// Disable form e mostra spinner
-		saveBtn.disabled = true;
-		saveText.style.display = 'none';
-		saveSpinner.style.display = 'inline-block';
-
-		try {
-			const formData = new FormData(e.target);
-			const recordData = {};
-			
-			// Converti FormData in oggetto per l'API
-			if (currentModel && currentModel.meta_fields) {
-				currentModel.meta_fields.forEach(field => {
-					const value = formData.get(field.name);
-					
-					switch (field.field_type) {
-						case 'BooleanField':
-							recordData[field.name] = formData.has(field.name);
-							break;
-						case 'IntegerField':
-							recordData[field.name] = value ? parseInt(value) : null;
-							break;
-						case 'FloatField':
-							recordData[field.name] = value ? parseFloat(value) : null;
-							break;
-						case 'DateField':
-						case 'DateTimeField':
-							recordData[field.name] = value || null;
-							break;
-						default:
-							recordData[field.name] = value || null;
-					}
-				});
-			}
-
-			const token = localStorage.getItem('authToken');
-			const recordId = document.getElementById('record-id').value;
-			
-			let response;
-			if (recordId) {
-				// Modifica record esistente
-				response = await fetch(`http://localhost:8000/api/data/${modelName}/${recordId}/`, {
-					method: 'PUT',
-					headers: {
-						'Authorization': `Token ${token}`,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(recordData)
-				});
-			} else {
-				// Crea nuovo record
-				response = await fetch(`http://localhost:8000/api/data/${modelName}/`, {
-					method: 'POST',
-					headers: {
-						'Authorization': `Token ${token}`,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(recordData)
-				});
-			}
-
-			if (response.ok) {
-				const savedRecord = await response.json();
-				
-				// Aggiorna array locale
-				if (recordId) {
-					const index = currentData.findIndex(r => r.id === parseInt(recordId));
-					if (index !== -1) {
-						currentData[index] = savedRecord;
-					}
-				} else {
-					currentData.push(savedRecord);
-				}
-
-				// Aggiorna UI
-				updateStats();
-				renderTable();
-				closeRecordModal();
-				
-				// Feedback positivo
-				const successMsg = document.createElement('div');
-				successMsg.className = 'alert alert-success';
-				successMsg.textContent = recordId ? '✅ Record aggiornato con successo!' : '✅ Record creato con successo!';
-				successMsg.style.position = 'fixed';
-				successMsg.style.top = '20px';
-				successMsg.style.right = '20px';
-				successMsg.style.zIndex = '9999';
-				document.body.appendChild(successMsg);
-				
-				setTimeout(() => successMsg.remove(), 3000);
-
-			} else {
-				const error = await response.json();
-				throw new Error(JSON.stringify(error));
-			}
-
-		} catch (error) {
-			console.error('Errore:', error);
-			alert('❌ Errore nel salvataggio del record: ' + error.message);
-		} finally {
-			// Ripristina stato del form
-			saveBtn.disabled = false;
-			saveText.style.display = 'inline';
-			saveSpinner.style.display = 'none';
-		}
-	});
 
 	// Chiudi modal cliccando fuori
 	document.getElementById('record-modal')?.addEventListener('click', (e) => {
