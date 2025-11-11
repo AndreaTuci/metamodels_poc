@@ -1,0 +1,391 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Dashboard - MetaModel CMS">
+	<div class="dashboard">
+		<!-- Header della pagina -->
+		<div class="page-header">
+			<div class="flex justify-between items-center">
+				<div>
+					<h1 class="page-title">🏠 Dashboard</h1>
+					<p class="page-subtitle">Benvenuto nel sistema di gestione dinamica dei modelli</p>
+				</div>
+				<div class="flex gap-3">
+					<a href="/models/new" class="btn btn-primary">
+						➕ Nuovo Modello
+					</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- Stats cards -->
+		<div class="grid grid-cols-1 grid-cols-3 mb-4">
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">Modelli Totali</p>
+							<p class="stat-number" id="total-models">-</p>
+						</div>
+						<div class="stat-icon">📊</div>
+					</div>
+				</div>
+			</div>
+			
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">Modelli Attivi</p>
+							<p class="stat-number" id="active-models">-</p>
+						</div>
+						<div class="stat-icon">✅</div>
+					</div>
+				</div>
+			</div>
+			
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">API Status</p>
+							<p class="stat-number" id="api-status">🔄</p>
+						</div>
+						<div class="stat-icon">🔌</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Azioni rapide -->
+		<div class="grid grid-cols-1 grid-cols-2 gap-4">
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">� Azioni Rapide</h3>
+				</div>
+				<div class="card-body">
+					<div class="quick-actions">
+						<a href="/models/new" class="quick-action-item">
+							<div class="quick-action-icon">➕</div>
+							<div>
+								<h4>Crea Nuovo Modello</h4>
+								<p class="text-small text-muted">Definisci un nuovo modello dinamico</p>
+							</div>
+						</a>
+						<a href="/models" class="quick-action-item">
+							<div class="quick-action-icon">📊</div>
+							<div>
+								<h4>Gestisci Modelli</h4>
+								<p class="text-small text-muted">Modifica i modelli esistenti</p>
+							</div>
+						</a>
+						<a href="/data" class="quick-action-item">
+							<div class="quick-action-icon">📝</div>
+							<div>
+								<h4>Gestisci Dati</h4>
+								<p class="text-small text-muted">Inserisci e modifica i record</p>
+							</div>
+						</a>
+					</div>
+				</div>
+			</div>
+			
+			<div class="card">
+				<div class="card-header">
+					<h3 class="card-title">💡 Suggerimenti</h3>
+				</div>
+				<div class="card-body">
+					<div class="tips-list">
+						<div class="tip-item">
+							<span class="tip-icon">🎯</span>
+							<p class="text-small">Usa nomi descrittivi per i tuoi modelli e campi</p>
+						</div>
+						<div class="tip-item">
+							<span class="tip-icon">🔍</span>
+							<p class="text-small">I campi unique aiutano a mantenere l'integrità dei dati</p>
+						</div>
+						<div class="tip-item">
+							<span class="tip-icon">💾</span>
+							<p class="text-small">Le modifiche ai modelli creano automaticamente backup</p>
+						</div>
+						<div class="tip-item">
+							<span class="tip-icon">🔗</span>
+							<p class="text-small">Usa le relazioni per collegare modelli tra loro</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Modelli recenti -->
+		<div class="card mt-4">
+			<div class="card-header">
+				<div class="flex justify-between items-center">
+					<h2 class="card-title">📋 Modelli Disponibili</h2>
+					<a href="/models" class="btn btn-secondary btn-sm">Vedi Tutti</a>
+				</div>
+			</div>
+			<div class="card-body">
+				<div id="models-loading" class="text-center">
+					<div class="loading"></div>
+					<p class="text-muted mt-2">Caricamento modelli...</p>
+				</div>
+				<div id="models-content" style="display: none;">
+					<div id="models-list"></div>
+				</div>
+				<div id="models-error" style="display: none;" class="alert alert-error">
+					Errore nel caricamento dei modelli. Verifica che Django sia in esecuzione.
+				</div>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<style>
+	.dashboard {
+		padding: 0;
+	}
+	
+	.page-header {
+		margin-bottom: 2rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid #e2e8f0;
+	}
+	
+	.page-title {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+	
+	.page-subtitle {
+		color: #718096;
+		margin: 0;
+		font-size: 1rem;
+	}
+	
+	.stat-number {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0;
+	}
+	
+	.stat-icon {
+		font-size: 2rem;
+		opacity: 0.7;
+	}
+	
+	.quick-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	
+	.quick-action-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem;
+		background: #f8fafc;
+		border-radius: 8px;
+		text-decoration: none;
+		color: inherit;
+		transition: all 0.2s;
+	}
+	
+	.quick-action-item:hover {
+		background: #e2e8f0;
+		transform: translateY(-1px);
+	}
+	
+	.quick-action-icon {
+		font-size: 1.5rem;
+		width: 3rem;
+		height: 3rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: white;
+		border-radius: 50%;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	}
+	
+	.quick-action-item h4 {
+		margin: 0 0 0.25rem 0;
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	
+	.tips-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	
+	.tip-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+	}
+	
+	.tip-icon {
+		font-size: 1.25rem;
+		margin-top: 0.125rem;
+		flex-shrink: 0;
+	}
+	
+	.tip-item p {
+		margin: 0;
+		line-height: 1.5;
+	}
+	
+	.model-card {
+		padding: 1rem;
+		background: #f8fafc;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		border: 1px solid #e2e8f0;
+	}
+	
+	.model-card:hover {
+		background: #e2e8f0;
+	}
+	
+	.model-card h4 {
+		margin: 0 0 0.5rem 0;
+		color: #1a202c;
+	}
+	
+	.model-card p {
+		margin: 0 0 1rem 0;
+		color: #718096;
+		font-size: 0.875rem;
+	}
+	
+	@media (max-width: 768px) {
+		.page-header .flex {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: flex-start;
+		}
+		
+		.grid-cols-3 {
+			grid-template-columns: 1fr;
+		}
+		
+		.grid-cols-2 {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
+
+<script>
+	document.addEventListener('DOMContentLoaded', async function() {
+		await loadDashboardData();
+	});
+	
+	async function loadDashboardData() {
+		await checkApiStatus();
+		await loadModels();
+	}
+	
+	async function checkApiStatus() {
+		const statusEl = document.getElementById('api-status');
+		try {
+			const token = localStorage.getItem('authToken');
+			const response = await fetch('http://localhost:8000/api/meta-models/', {
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+			
+			if (response.ok) {
+				if (statusEl) {
+					statusEl.textContent = '✅';
+					statusEl.style.color = '#10b981';
+				}
+			} else {
+				throw new Error('API not responding');
+			}
+		} catch (error) {
+			if (statusEl) {
+				statusEl.textContent = '❌';
+				statusEl.style.color = '#ef4444';
+			}
+		}
+	}
+	
+	async function loadModels() {
+		const loadingDiv = document.getElementById('models-loading')!;
+		const contentDiv = document.getElementById('models-content')!;
+		const errorDiv = document.getElementById('models-error')!;
+		
+		try {
+			const token = localStorage.getItem('authToken');
+			const response = await fetch('http://localhost:8000/api/meta-models/', {
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+			
+			if (!response.ok) throw new Error('Failed to fetch models');
+			
+			const data = await response.json();
+			const models = data.results || data;
+			
+			// Aggiorna statistiche
+			document.getElementById('total-models')!.textContent = models.length.toString();
+			document.getElementById('active-models')!.textContent = models.filter(m => m.is_active).length.toString();
+			
+			// Mostra modelli
+			displayModels(models.slice(0, 5));
+			
+			loadingDiv.style.display = 'none';
+			contentDiv.style.display = 'block';
+			
+		} catch (error) {
+			console.error('Errore nel caricamento modelli:', error);
+			loadingDiv.style.display = 'none';
+			errorDiv.style.display = 'block';
+		}
+	}
+	
+	function displayModels(models: any[]) {
+		const listDiv = document.getElementById('models-list')!;
+		
+		if (models.length === 0) {
+			listDiv.innerHTML = `
+				<div class="text-center">
+					<p class="text-muted">Nessun modello presente</p>
+					<a href="/models/new" class="btn btn-primary">Crea il primo modello</a>
+				</div>
+			`;
+		} else {
+			listDiv.innerHTML = models.map(model => `
+				<div class="model-card">
+					<div class="flex justify-between items-start">
+						<div class="flex-1">
+							<h4>${model.name}</h4>
+							<p>${model.description || 'Nessuna descrizione'}</p>
+							<div class="flex items-center gap-2">
+								<span class="badge ${model.is_active ? 'badge-success' : 'badge-danger'}">
+									${model.is_active ? 'Attivo' : 'Inattivo'}
+								</span>
+								<span class="badge badge-info">${model.meta_fields?.length || 0} campi</span>
+							</div>
+						</div>
+						<div class="flex gap-2">
+							<a href="/data/${model.name}" class="btn btn-primary btn-sm">📝 Dati</a>
+							<a href="/models/${model.id}" class="btn btn-secondary btn-sm">⚙️</a>
+						</div>
+					</div>
+				</div>
+			`).join('');
+		}
+	}
+</script>

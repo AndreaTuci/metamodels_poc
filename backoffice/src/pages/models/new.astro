@@ -1,0 +1,196 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Nuovo Modello">
+	<div class="container">
+		<div class="card">
+			<h2>Crea Nuovo Modello</h2>
+			<form id="model-form">
+				<div style="display: grid; gap: 1rem;">
+					<div>
+						<label for="name">Nome del Modello:</label>
+						<input type="text" id="name" name="name" required style="width: 100%; padding: 0.5rem; margin-top: 0.25rem;">
+					</div>
+					
+					<div>
+						<label for="description">Descrizione:</label>
+						<textarea id="description" name="description" rows="3" style="width: 100%; padding: 0.5rem; margin-top: 0.25rem;"></textarea>
+					</div>
+					
+					<div>
+						<input type="checkbox" id="is_active" name="is_active" checked>
+						<label for="is_active">Modello attivo</label>
+					</div>
+					
+					<h3>Campi del Modello</h3>
+					<div id="fields-container">
+						<div class="field-row" data-index="0">
+							<div style="display: grid; grid-template-columns: 2fr 2fr 1fr 1fr auto; gap: 0.5rem; align-items: end; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;">
+								<div>
+									<label>Nome Campo:</label>
+									<input type="text" name="field_name_0" required style="width: 100%; padding: 0.25rem;">
+								</div>
+								<div>
+									<label>Tipo:</label>
+									<select name="field_type_0" style="width: 100%; padding: 0.25rem;">
+										<option value="char">Testo</option>
+										<option value="text">Testo Lungo</option>
+										<option value="integer">Numero</option>
+										<option value="decimal">Decimale</option>
+										<option value="boolean">Boolean</option>
+										<option value="date">Data</option>
+										<option value="datetime">Data e Ora</option>
+										<option value="email">Email</option>
+										<option value="url">URL</option>
+									</select>
+								</div>
+								<div>
+									<input type="checkbox" name="field_required_0" id="req_0">
+									<label for="req_0">Richiesto</label>
+								</div>
+								<div>
+									<input type="checkbox" name="field_unique_0" id="uniq_0">
+									<label for="uniq_0">Unico</label>
+								</div>
+								<button type="button" onclick="removeField(0)" class="btn btn-danger" style="height: fit-content;">🗑️</button>
+							</div>
+						</div>
+					</div>
+					
+					<button type="button" onclick="addField()" class="btn">+ Aggiungi Campo</button>
+					
+					<div style="display: flex; gap: 1rem;">
+						<button type="submit" class="btn btn-success">Crea Modello</button>
+						<a href="/models" class="btn">Annulla</a>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+	
+	<script>
+		let fieldIndex = 1;
+		
+		function addField() {
+			const container = document.getElementById('fields-container');
+			if (!container) return;
+			
+			const fieldHtml = `
+				<div class="field-row" data-index="${fieldIndex}">
+					<div style="display: grid; grid-template-columns: 2fr 2fr 1fr 1fr auto; gap: 0.5rem; align-items: end; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;">
+						<div>
+							<label>Nome Campo:</label>
+							<input type="text" name="field_name_${fieldIndex}" required style="width: 100%; padding: 0.25rem;">
+						</div>
+						<div>
+							<label>Tipo:</label>
+							<select name="field_type_${fieldIndex}" style="width: 100%; padding: 0.25rem;">
+								<option value="char">Testo</option>
+								<option value="text">Testo Lungo</option>
+								<option value="integer">Numero</option>
+								<option value="decimal">Decimale</option>
+								<option value="boolean">Boolean</option>
+								<option value="date">Data</option>
+								<option value="datetime">Data e Ora</option>
+								<option value="email">Email</option>
+								<option value="url">URL</option>
+							</select>
+						</div>
+						<div>
+							<input type="checkbox" name="field_required_${fieldIndex}" id="req_${fieldIndex}">
+							<label for="req_${fieldIndex}">Richiesto</label>
+						</div>
+						<div>
+							<input type="checkbox" name="field_unique_${fieldIndex}" id="uniq_${fieldIndex}">
+							<label for="uniq_${fieldIndex}">Unico</label>
+						</div>
+						<button type="button" onclick="removeField(${fieldIndex})" class="btn btn-danger" style="height: fit-content;">🗑️</button>
+					</div>
+				</div>
+			`;
+			
+			container.insertAdjacentHTML('beforeend', fieldHtml);
+			fieldIndex++;
+		}
+		
+		function removeField(index) {
+			const fieldRow = document.querySelector(`[data-index="${index}"]`);
+			if (fieldRow) {
+				fieldRow.remove();
+			}
+		}
+		
+		document.getElementById('model-form')?.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			
+			const formData = new FormData(e.target);
+			const fieldRows = document.querySelectorAll('.field-row');
+			
+			// Costruisci l'oggetto del modello
+			const modelData = {
+				name: formData.get('name'),
+				description: formData.get('description'),
+				is_active: formData.get('is_active') === 'on',
+				meta_fields: []
+			};
+			
+			// Raccogli i campi
+			fieldRows.forEach((row, idx) => {
+				const index = row.getAttribute('data-index');
+				const fieldName = formData.get(`field_name_${index}`);
+				const fieldType = formData.get(`field_type_${index}`);
+				const required = formData.get(`field_required_${index}`) === 'on';
+				const unique = formData.get(`field_unique_${index}`) === 'on';
+				
+				if (fieldName && fieldType) {
+					modelData.meta_fields.push({
+						name: fieldName,
+						field_type: fieldType,
+						required: required,
+						unique: unique,
+						order: idx
+					});
+				}
+			});
+			
+			try {
+				const response = await fetch('http://localhost:8000/api/meta-models/', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(modelData)
+				});
+				
+				if (response.ok) {
+					alert('✅ Modello creato con successo!');
+					window.location.href = '/models';
+				} else {
+					const error = await response.json();
+					alert('❌ Errore nella creazione del modello: ' + JSON.stringify(error));
+				}
+			} catch (error) {
+				alert('❌ Errore di connessione: ' + error.message);
+			}
+		});
+	</script>
+	
+	<style>
+		label {
+			display: block;
+			font-weight: bold;
+			margin-bottom: 0.25rem;
+		}
+		
+		input, textarea, select {
+			border: 1px solid #ddd;
+			border-radius: 4px;
+		}
+		
+		input:focus, textarea:focus, select:focus {
+			outline: none;
+			border-color: #3498db;
+		}
+	</style>
+</Layout>

@@ -1,0 +1,430 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+
+// Per le route dinamiche in modalità hybrid, possiamo forzare il rendering server-side
+export const prerender = false;
+
+export function getStaticPaths() {
+  // Array vuoto significa che tutte le richieste saranno gestite server-side
+  return [];
+}
+
+const { id } = Astro.params;
+---
+
+<Layout title="Modifica Modello - MetaModel CMS">
+	<div class="page-header">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="page-title">✏️ Modifica Modello</h1>
+				<p class="page-subtitle">Modifica la struttura e i campi del modello</p>
+			</div>
+			<div class="flex gap-3">
+				<button onclick="goBack()" class="btn btn-secondary">← Indietro</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="loading" class="text-center">
+		<div class="loading"></div>
+		<p class="text-muted mt-2">Caricamento modello...</p>
+	</div>
+
+	<div id="content" style="display: none;">
+		<div class="grid grid-cols-1 grid-cols-2 gap-4">
+			<!-- Form modello -->
+			<div class="card">
+				<div class="card-header">
+					<h2 class="card-title">📝 Informazioni Modello</h2>
+				</div>
+				<div class="card-body">
+					<form id="model-form">
+						<div class="form-group">
+							<label class="form-label" for="name">Nome Modello</label>
+							<input type="text" id="name" name="name" class="form-input" required>
+							<p class="text-xs text-muted mt-1">Il nome della classe del modello (es. "Product")</p>
+						</div>
+						
+						<div class="form-group">
+							<label class="form-label" for="description">Descrizione</label>
+							<textarea id="description" name="description" class="form-textarea" rows="3"></textarea>
+						</div>
+						
+						<div class="form-group">
+							<label class="form-checkbox">
+								<input type="checkbox" id="is_active" name="is_active">
+								Modello attivo
+							</label>
+							<p class="text-xs text-muted">Solo i modelli attivi possono essere utilizzati</p>
+						</div>
+						
+						<button type="submit" class="btn btn-success w-full" id="save-btn">
+							<span id="save-text">💾 Salva Modifiche</span>
+							<div id="save-spinner" class="loading" style="display: none;"></div>
+						</button>
+					</form>
+				</div>
+			</div>
+
+			<!-- Gestione campi -->
+			<div class="card">
+				<div class="card-header">
+					<div class="flex justify-between items-center">
+						<h2 class="card-title">🔧 Campi del Modello</h2>
+						<button class="btn btn-primary btn-sm" onclick="addField()">➕ Aggiungi Campo</button>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="fields-container">
+						<!-- I campi saranno caricati dinamicamente -->
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="error" style="display: none;" class="alert alert-error">
+		Errore nel caricamento del modello. Verifica l'ID e riprova.
+	</div>
+
+	<!-- Modal per aggiungere/modificare campo -->
+	<div id="field-modal" class="modal" style="display: none;">
+		<div class="modal-content card" style="max-width: 500px; margin: 2rem auto;">
+			<div class="card-header">
+				<h3 class="card-title" id="modal-title">Aggiungi Campo</h3>
+			</div>
+			<div class="card-body">
+				<form id="field-form">
+					<input type="hidden" id="field-index" value="">
+					
+					<div class="form-group">
+						<label class="form-label" for="field_name">Nome Campo</label>
+						<input type="text" id="field_name" name="name" class="form-input" required>
+					</div>
+					
+					<div class="form-group">
+						<label class="form-label" for="field_type">Tipo Campo</label>
+						<select id="field_type" name="field_type" class="form-select" required>
+							<option value="">Seleziona tipo...</option>
+							<option value="CharField">Testo</option>
+							<option value="TextField">Testo Lungo</option>
+							<option value="IntegerField">Numero Intero</option>
+							<option value="FloatField">Numero Decimale</option>
+							<option value="BooleanField">Booleano</option>
+							<option value="DateField">Data</option>
+							<option value="DateTimeField">Data e Ora</option>
+							<option value="EmailField">Email</option>
+							<option value="URLField">URL</option>
+						</select>
+					</div>
+					
+					<div class="form-group">
+						<label class="form-label" for="verbose_name">Etichetta</label>
+						<input type="text" id="verbose_name" name="verbose_name" class="form-input">
+					</div>
+					
+					<div class="form-group">
+						<label class="form-label" for="help_text">Testo di Aiuto</label>
+						<input type="text" id="help_text" name="help_text" class="form-input">
+					</div>
+					
+					<div class="flex gap-2">
+						<label class="form-checkbox">
+							<input type="checkbox" id="field_required" name="required">
+							Obbligatorio
+						</label>
+						<label class="form-checkbox">
+							<input type="checkbox" id="field_unique" name="unique">
+							Unico
+						</label>
+					</div>
+					
+					<div class="flex gap-3 mt-4">
+						<button type="button" class="btn btn-secondary" onclick="closeFieldModal()">Annulla</button>
+						<button type="submit" class="btn btn-primary">Salva Campo</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<style>
+	.page-header {
+		margin-bottom: 2rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid #e2e8f0;
+	}
+	
+	.page-title {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+	
+	.page-subtitle {
+		color: #718096;
+		margin: 0;
+		font-size: 1rem;
+	}
+	
+	.field-item {
+		padding: 1rem;
+		background: #f8fafc;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		border: 1px solid #e2e8f0;
+	}
+	
+	.field-item h4 {
+		margin: 0 0 0.5rem 0;
+		color: #1a202c;
+		font-size: 1rem;
+	}
+	
+	.field-meta {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin-bottom: 0.5rem;
+	}
+	
+	.field-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+	
+	.modal {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0,0,0,0.5);
+		z-index: 1000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+	}
+	
+	.modal-content {
+		background: white;
+		width: 100%;
+		max-height: 90vh;
+		overflow-y: auto;
+	}
+	
+	@media (max-width: 768px) {
+		.grid-cols-2 {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
+
+<script>
+	const modelId = window.location.pathname.split('/')[2];
+	let currentModel = null;
+	let currentFields = [];
+
+	document.addEventListener('DOMContentLoaded', async function() {
+		await loadModel();
+	});
+
+	async function loadModel() {
+		try {
+			const token = localStorage.getItem('authToken');
+			const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/`, {
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (!response.ok) throw new Error('Modello non trovato');
+
+			currentModel = await response.json();
+			currentFields = currentModel.meta_fields || [];
+
+			// Popola il form
+			document.getElementById('name')!.value = currentModel.name;
+			document.getElementById('description')!.value = currentModel.description || '';
+			document.getElementById('is_active')!.checked = currentModel.is_active;
+
+			renderFields();
+
+			document.getElementById('loading')!.style.display = 'none';
+			document.getElementById('content')!.style.display = 'block';
+
+		} catch (error) {
+			console.error('Errore:', error);
+			document.getElementById('loading')!.style.display = 'none';
+			document.getElementById('error')!.style.display = 'block';
+		}
+	}
+
+	function renderFields() {
+		const container = document.getElementById('fields-container')!;
+		
+		if (currentFields.length === 0) {
+			container.innerHTML = '<p class="text-muted text-center">Nessun campo definito</p>';
+			return;
+		}
+
+		container.innerHTML = currentFields.map((field, index) => `
+			<div class="field-item">
+				<div class="flex justify-between items-start">
+					<div class="flex-1">
+						<h4>${field.name}</h4>
+						<div class="field-meta">
+							<span class="badge badge-info">${field.field_type}</span>
+							${field.required ? '<span class="badge badge-warning">Obbligatorio</span>' : ''}
+							${field.unique ? '<span class="badge badge-success">Unico</span>' : ''}
+						</div>
+						${field.verbose_name ? `<p class="text-small text-muted">${field.verbose_name}</p>` : ''}
+					</div>
+					<div class="field-actions">
+						<button class="btn btn-secondary btn-sm" onclick="editField(${index})">✏️</button>
+						<button class="btn btn-danger btn-sm" onclick="deleteField(${index})">🗑️</button>
+					</div>
+				</div>
+			</div>
+		`).join('');
+	}
+
+	// Gestione del form principale
+	document.getElementById('model-form')?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		
+		const saveBtn = document.getElementById('save-btn')!;
+		const saveText = document.getElementById('save-text')!;
+		const saveSpinner = document.getElementById('save-spinner')!;
+		
+		saveBtn.disabled = true;
+		saveText.style.display = 'none';
+		saveSpinner.style.display = 'inline-block';
+
+		try {
+			const formData = new FormData(e.target);
+			const modelData = {
+				name: formData.get('name'),
+				description: formData.get('description'),
+				is_active: formData.has('is_active'),
+				meta_fields: currentFields
+			};
+
+			const token = localStorage.getItem('authToken');
+			const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/`, {
+				method: 'PUT',
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(modelData)
+			});
+
+			if (response.ok) {
+				// Success feedback
+				saveText.textContent = '✅ Salvato!';
+				setTimeout(() => {
+					saveText.textContent = '💾 Salva Modifiche';
+				}, 2000);
+			} else {
+				throw new Error('Errore nel salvataggio');
+			}
+
+		} catch (error) {
+			console.error('Errore:', error);
+			alert('Errore nel salvataggio del modello');
+		} finally {
+			saveBtn.disabled = false;
+			saveText.style.display = 'inline';
+			saveSpinner.style.display = 'none';
+		}
+	});
+
+	// Gestione campi
+	function addField() {
+		document.getElementById('modal-title')!.textContent = 'Aggiungi Campo';
+		document.getElementById('field-index')!.value = '';
+		document.getElementById('field-form')!.reset();
+		document.getElementById('field-modal')!.style.display = 'flex';
+	}
+
+	function editField(index) {
+		const field = currentFields[index];
+		document.getElementById('modal-title')!.textContent = 'Modifica Campo';
+		document.getElementById('field-index')!.value = index.toString();
+		
+		document.getElementById('field_name')!.value = field.name;
+		document.getElementById('field_type')!.value = field.field_type;
+		document.getElementById('verbose_name')!.value = field.verbose_name || '';
+		document.getElementById('help_text')!.value = field.help_text || '';
+		document.getElementById('field_required')!.checked = field.required;
+		document.getElementById('field_unique')!.checked = field.unique;
+		
+		document.getElementById('field-modal')!.style.display = 'flex';
+	}
+
+	function deleteField(index) {
+		if (confirm('Sei sicuro di voler eliminare questo campo?')) {
+			currentFields.splice(index, 1);
+			renderFields();
+		}
+	}
+
+	function closeFieldModal() {
+		document.getElementById('field-modal')!.style.display = 'none';
+	}
+
+	// Gestione form campo
+	document.getElementById('field-form')?.addEventListener('submit', (e) => {
+		e.preventDefault();
+		
+		const formData = new FormData(e.target);
+		const fieldData = {
+			name: formData.get('name'),
+			field_type: formData.get('field_type'),
+			verbose_name: formData.get('verbose_name') || '',
+			help_text: formData.get('help_text') || '',
+			required: formData.has('required'),
+			unique: formData.has('unique'),
+			default_value: null,
+			related_model: null,
+			relation_type: null,
+			order: currentFields.length
+		};
+
+		const index = document.getElementById('field-index')!.value;
+		if (index === '') {
+			// Aggiungi nuovo campo
+			currentFields.push(fieldData);
+		} else {
+			// Modifica campo esistente
+			currentFields[parseInt(index)] = fieldData;
+		}
+
+		renderFields();
+		closeFieldModal();
+	});
+
+	// Chiudi modal cliccando fuori
+	document.getElementById('field-modal')?.addEventListener('click', (e) => {
+		if (e.target === e.currentTarget) {
+			closeFieldModal();
+		}
+	});
+
+	// Funzione intelligente per tornare indietro
+	window.goBack = function() {
+		// Se c'è history e non siamo nella prima pagina
+		if (window.history.length > 1 && document.referrer) {
+			window.history.back();
+		} else {
+			// Fallback: vai alla pagina modelli
+			window.location.href = '/models';
+		}
+	};
+</script>
+</Layout>

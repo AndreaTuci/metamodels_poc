@@ -1,0 +1,128 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Gestione Modelli">
+	<div class="container">
+		<div class="card">
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+				<h2>Modelli Dinamici</h2>
+				<a href="/models/new" class="btn btn-success">+ Nuovo Modello</a>
+			</div>
+			<div id="models-list">
+				<p>Caricamento modelli...</p>
+			</div>
+		</div>
+	</div>
+	
+	<script>
+		async function loadModels() {
+			try {
+				const response = await fetch('http://localhost:8000/api/meta-models/', {
+					credentials: 'include'
+				});
+				const data = await response.json();
+				const models = data.results || data;
+				
+				const listEl = document.getElementById('models-list');
+				if (!listEl) return;
+				
+				if (models.length === 0) {
+					listEl.innerHTML = '<p>Nessun modello trovato. <a href="/models/new">Crea il primo modello</a></p>';
+					return;
+				}
+				
+				let html = '<div style="display: grid; gap: 1rem;">';
+				
+				models.forEach((model) => {
+					html += `
+						<div class="card" style="border-left: 4px solid ${model.is_active ? '#27ae60' : '#e74c3c'};">
+							<div style="display: flex; justify-content: between; align-items: center;">
+								<div style="flex: 1;">
+									<h3>${model.name}</h3>
+									<p><strong>Tabella:</strong> ${model.table_name}</p>
+									<p><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
+									<p><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
+									<p><strong>Stato:</strong> ${model.is_active ? '✅ Attivo' : '❌ Inattivo'}</p>
+								</div>
+								<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+									<a href="/models/${model.id}/edit" class="btn">✏️ Modifica</a>
+									<a href="/data/${model.name}" class="btn">📊 Dati</a>
+									<button onclick="createTable(${model.id})" class="btn btn-success">🔧 Crea Tabella</button>
+									<button onclick="updateTable(${model.id})" class="btn">🔄 Aggiorna</button>
+									<button onclick="deleteModel(${model.id})" class="btn btn-danger">🗑️ Elimina</button>
+								</div>
+							</div>
+						</div>
+					`;
+				});
+				
+				html += '</div>';
+				listEl.innerHTML = html;
+				
+			} catch (error) {
+				const listEl = document.getElementById('models-list');
+				if (listEl) {
+					listEl.innerHTML = '<p style="color: red;">❌ Errore nel caricamento dei modelli. Verifica che il server Django sia attivo.</p>';
+				}
+			}
+		}
+		
+		async function createTable(modelId) {
+			try {
+				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/create_table/`, {
+					method: 'POST',
+					credentials: 'include'
+				});
+				
+				if (response.ok) {
+					alert('✅ Tabella creata con successo!');
+				} else {
+					alert('❌ Errore nella creazione della tabella');
+				}
+			} catch (error) {
+				alert('❌ Errore di connessione');
+			}
+		}
+		
+		async function updateTable(modelId) {
+			try {
+				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/update_table/`, {
+					method: 'POST',
+					credentials: 'include'
+				});
+				
+				if (response.ok) {
+					alert('✅ Tabella aggiornata con successo!');
+				} else {
+					alert('❌ Errore nell\'aggiornamento della tabella');
+				}
+			} catch (error) {
+				alert('❌ Errore di connessione');
+			}
+		}
+		
+		async function deleteModel(modelId) {
+			if (!confirm('Sei sicuro di voler eliminare questo modello?')) return;
+			
+			try {
+				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/`, {
+					method: 'DELETE',
+					credentials: 'include'
+				});
+				
+				if (response.ok) {
+					alert('✅ Modello eliminato con successo!');
+					loadModels(); // Ricarica la lista
+				} else {
+					alert('❌ Errore nell\'eliminazione del modello');
+				}
+			} catch (error) {
+				alert('❌ Errore di connessione');
+			}
+		}
+		
+		// Carica modelli al load della pagina
+		loadModels();
+	</script>
+</Layout>

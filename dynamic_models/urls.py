@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .api_views import MetaModelViewSet, DynamicModelViewSet
+from .auth_views import CustomAuthToken, LogoutView
 from .data_views import (
     dynamic_data_list, dynamic_data_add, dynamic_data_edit, 
     dynamic_data_delete, dynamic_data_export
@@ -12,6 +13,10 @@ router = DefaultRouter()
 router.register(r'meta-models', MetaModelViewSet, basename='metamodel')
 
 urlpatterns = [
+    # Auth endpoints  
+    path('auth/login/', CustomAuthToken.as_view(), name='auth-login'),
+    path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
+    
     # API per gestione dei MetaModel
     path('api/', include(router.urls)),
     

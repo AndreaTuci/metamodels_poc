@@ -1,0 +1,661 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Per le route dinamiche in modalità hybrid, forziamo il rendering server-side
+export const prerender = false;
+
+export function getStaticPaths() {
+  // Array vuoto significa che tutte le richieste saranno gestite server-side
+  return [];
+}
+
+const { modelName } = Astro.params;
+---
+
+<Layout title={`Gestione Dati: ${modelName} - MetaModel CMS`}>
+	<div class="page-header">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="page-title">📝 Gestione Dati: <span id="model-name">{modelName}</span></h1>
+				<p class="page-subtitle">Visualizza, aggiungi e modifica i record del modello</p>
+			</div>
+			<div class="flex gap-3">
+				<button onclick="goBack()" class="btn btn-secondary">← Indietro</button>
+				<button class="btn btn-primary" onclick="showAddModal()">➕ Nuovo Record</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Loading state -->
+	<div id="loading" class="text-center">
+		<div class="loading"></div>
+		<p class="text-muted mt-2">Caricamento dati...</p>
+	</div>
+
+	<!-- Content -->
+	<div id="content" style="display: none;">
+		<!-- Stats -->
+		<div class="grid grid-cols-1 grid-cols-3 mb-4">
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">Record Totali</p>
+							<p class="stat-number" id="total-records">0</p>
+						</div>
+						<div class="stat-icon">📊</div>
+					</div>
+				</div>
+			</div>
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">Campi Modello</p>
+							<p class="stat-number" id="total-fields">0</p>
+						</div>
+						<div class="stat-icon">🔧</div>
+					</div>
+				</div>
+			</div>
+			<div class="card">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div>
+							<p class="text-muted text-small">API Status</p>
+							<p class="stat-number" id="api-status">🔄</p>
+						</div>
+						<div class="stat-icon">🔌</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Filters & Search -->
+		<div class="card mb-4">
+			<div class="card-body">
+				<div class="flex gap-3 items-center">
+					<div class="flex-1">
+						<input 
+							type="search" 
+							id="search-input" 
+							placeholder="Cerca nei record..." 
+							class="form-input"
+						>
+					</div>
+					<button class="btn btn-secondary" onclick="refreshData()">🔄 Aggiorna</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Data Table -->
+		<div class="card">
+			<div class="card-header">
+				<h2 class="card-title">📋 Record del Modello</h2>
+			</div>
+			<div class="card-body">
+				<div class="table-responsive">
+					<table class="table" id="data-table">
+						<thead id="table-header">
+							<!-- Header generato dinamicamente -->
+						</thead>
+						<tbody id="table-body">
+							<!-- Dati generati dinamicamente -->
+						</tbody>
+					</table>
+				</div>
+				<div id="no-data" style="display: none;" class="text-center">
+					<p class="text-muted">Nessun record trovato</p>
+					<button class="btn btn-primary" onclick="showAddModal()">Aggiungi il primo record</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Error state -->
+	<div id="error" style="display: none;" class="alert alert-error">
+		<p>Errore nel caricamento dei dati. Possibili cause:</p>
+		<ul>
+			<li>Il modello "<strong id="error-model-name">{modelName}</strong>" non esiste</li>
+			<li>Il server Django non è raggiungibile</li>
+			<li>Non hai i permessi per accedere a questi dati</li>
+		</ul>
+		<div class="mt-3">
+			<button onclick="goBack()" class="btn btn-secondary">← Torna ai Dati</button>
+			<button class="btn btn-primary" onclick="location.reload()">Riprova</button>
+		</div>
+	</div>
+
+	<!-- Modal per aggiungere/modificare record -->
+	<div id="record-modal" class="modal" style="display: none;">
+		<div class="modal-content card" style="max-width: 600px; margin: 2rem auto;">
+			<div class="card-header">
+				<h3 class="card-title" id="modal-title">Nuovo Record</h3>
+			</div>
+			<div class="card-body">
+				<form id="record-form">
+					<input type="hidden" id="record-id" value="">
+					<div id="form-fields">
+						<!-- Campi generati dinamicamente -->
+					</div>
+					<div class="flex gap-3 mt-4">
+						<button type="button" class="btn btn-secondary" onclick="closeRecordModal()">Annulla</button>
+						<button type="submit" class="btn btn-primary" id="save-record-btn">
+							<span id="save-record-text">💾 Salva</span>
+							<div id="save-record-spinner" class="loading" style="display: none;"></div>
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<style>
+	.page-header {
+		margin-bottom: 2rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid #e2e8f0;
+	}
+	
+	.page-title {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+	
+	.page-subtitle {
+		color: #718096;
+		margin: 0;
+		font-size: 1rem;
+	}
+	
+	.stat-number {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0;
+	}
+	
+	.stat-icon {
+		font-size: 1.5rem;
+		opacity: 0.7;
+	}
+	
+	.modal {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0,0,0,0.5);
+		z-index: 1000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+	}
+	
+	.modal-content {
+		background: white;
+		width: 100%;
+		max-height: 90vh;
+		overflow-y: auto;
+	}
+	
+	.table-responsive {
+		overflow-x: auto;
+		max-width: 100%;
+	}
+	
+	@media (max-width: 768px) {
+		.grid-cols-3 {
+			grid-template-columns: 1fr;
+		}
+		
+		.page-header .flex {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: flex-start;
+		}
+	}
+</style>
+
+<script>
+	const modelName = window.location.pathname.split('/').pop();
+	let currentModel = null;
+	let currentData = [];
+
+	document.addEventListener('DOMContentLoaded', async function() {
+		await loadModelAndData();
+	});
+
+	async function loadModelAndData() {
+		try {
+			const token = localStorage.getItem('authToken');
+			
+			// Prima verifica lo status dell'API
+			document.getElementById('api-status')!.textContent = '🔄';
+			
+			// Carica informazioni del modello
+			const modelsResponse = await fetch('http://localhost:8000/api/meta-models/', {
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (!modelsResponse.ok) throw new Error('Errore nel caricamento modelli');
+
+			const modelsData = await modelsResponse.json();
+			const models = modelsData.results || modelsData;
+			currentModel = models.find(m => m.name === modelName);
+
+			if (!currentModel) {
+				throw new Error(`Modello ${modelName} non trovato`);
+			}
+
+			// API OK
+			document.getElementById('api-status')!.textContent = '✅';
+			document.getElementById('api-status')!.style.color = '#10b981';
+
+			// Carica i dati del modello
+			const dataResponse = await fetch(`http://localhost:8000/api/data/${modelName}/`, {
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (dataResponse.ok) {
+				const responseData = await dataResponse.json();
+				currentData = responseData.results || responseData;
+			} else {
+				currentData = []; // Modello senza dati
+			}
+
+			// Aggiorna l'interfaccia
+			updateStats();
+			renderTable();
+
+			document.getElementById('loading')!.style.display = 'none';
+			document.getElementById('content')!.style.display = 'block';
+
+		} catch (error) {
+			console.error('Errore:', error);
+			document.getElementById('api-status')!.textContent = '❌';
+			document.getElementById('api-status')!.style.color = '#ef4444';
+			document.getElementById('loading')!.style.display = 'none';
+			document.getElementById('error')!.style.display = 'block';
+		}
+	}
+
+	function updateStats() {
+		document.getElementById('total-records')!.textContent = currentData.length.toString();
+		document.getElementById('total-fields')!.textContent = (currentModel?.meta_fields?.length || 0).toString();
+	}
+
+	function renderTable() {
+		const headerEl = document.getElementById('table-header')!;
+		const bodyEl = document.getElementById('table-body')!;
+		const noDataEl = document.getElementById('no-data')!;
+
+		if (!currentModel || !currentModel.meta_fields || currentModel.meta_fields.length === 0) {
+			headerEl.innerHTML = '<tr><th>ID</th><th>Azioni</th></tr>';
+			bodyEl.innerHTML = '<tr><td colspan="2" class="text-center text-muted">Modello senza campi definiti</td></tr>';
+			return;
+		}
+
+		// Render header
+		const headers = ['ID', ...currentModel.meta_fields.map(f => f.verbose_name || f.name), 'Azioni'];
+		headerEl.innerHTML = `
+			<tr>
+				${headers.map(h => `<th>${h}</th>`).join('')}
+			</tr>
+		`;
+
+		// Render data
+		if (currentData.length === 0) {
+			bodyEl.innerHTML = `<tr><td colspan="${headers.length}" class="text-center text-muted">Nessun record trovato</td></tr>`;
+			noDataEl.style.display = 'block';
+		} else {
+			noDataEl.style.display = 'none';
+			bodyEl.innerHTML = currentData.map(record => {
+				const cells = [
+					record.id || '-',
+					...currentModel.meta_fields.map(field => formatFieldValue(record[field.name], field.field_type)),
+					`
+						<div class="flex gap-2">
+							<button class="btn btn-secondary btn-sm" onclick="editRecord(${record.id})">✏️</button>
+							<button class="btn btn-danger btn-sm" onclick="deleteRecord(${record.id})">🗑️</button>
+						</div>
+					`
+				];
+				return `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+			}).join('');
+		}
+	}
+
+	function formatFieldValue(value, fieldType) {
+		if (value === null || value === undefined) return '-';
+		
+		switch (fieldType) {
+			case 'BooleanField':
+				return value ? '✅ Sì' : '❌ No';
+			case 'DateField':
+				return new Date(value).toLocaleDateString('it-IT');
+			case 'DateTimeField':
+				return new Date(value).toLocaleString('it-IT');
+			case 'URLField':
+				return `<a href="${value}" target="_blank" class="text-primary">${value}</a>`;
+			case 'EmailField':
+				return `<a href="mailto:${value}" class="text-primary">${value}</a>`;
+			default:
+				return value.toString().length > 50 ? value.toString().substring(0, 50) + '...' : value;
+		}
+	}
+
+	// Modal functions
+	function showAddModal() {
+		document.getElementById('modal-title')!.textContent = 'Nuovo Record';
+		document.getElementById('record-id')!.value = '';
+		generateFormFields();
+		document.getElementById('record-modal')!.style.display = 'flex';
+	}
+
+	function editRecord(id) {
+		const record = currentData.find(r => r.id === id);
+		if (!record) return;
+
+		document.getElementById('modal-title')!.textContent = 'Modifica Record';
+		document.getElementById('record-id')!.value = id.toString();
+		generateFormFields(record);
+		document.getElementById('record-modal')!.style.display = 'flex';
+	}
+
+	// Rendi le funzioni globalmente accessibili
+	window.showAddModal = showAddModal;
+	window.editRecord = editRecord;
+	window.deleteRecord = deleteRecord;
+	window.refreshData = refreshData;
+	window.closeRecordModal = closeRecordModal;
+
+	// Funzione intelligente per tornare indietro
+	window.goBack = function() {
+		// Se c'è history e non siamo nella prima pagina
+		if (window.history.length > 1 && document.referrer) {
+			window.history.back();
+		} else {
+			// Fallback: vai alla pagina dati
+			window.location.href = '/data';
+		}
+	};
+
+	function generateFormFields(record = null) {
+		const container = document.getElementById('form-fields')!;
+		
+		if (!currentModel || !currentModel.meta_fields) {
+			container.innerHTML = '<p class="text-muted">Nessun campo disponibile</p>';
+			return;
+		}
+
+		container.innerHTML = currentModel.meta_fields.map(field => {
+			const value = record ? (record[field.name] || '') : '';
+			const inputId = `field_${field.name}`;
+			
+			let input = '';
+			switch (field.field_type) {
+				case 'TextField':
+					input = `<textarea id="${inputId}" name="${field.name}" class="form-textarea" ${field.required ? 'required' : ''}>${value}</textarea>`;
+					break;
+				case 'BooleanField':
+					input = `<label class="form-checkbox"><input type="checkbox" id="${inputId}" name="${field.name}" ${value ? 'checked' : ''}> ${field.verbose_name || field.name}</label>`;
+					break;
+				case 'IntegerField':
+				case 'FloatField':
+					input = `<input type="number" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''} ${field.field_type === 'FloatField' ? 'step="0.01"' : ''}>`;
+					break;
+				case 'DateField':
+					input = `<input type="date" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
+					break;
+				case 'DateTimeField':
+					input = `<input type="datetime-local" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
+					break;
+				case 'EmailField':
+					input = `<input type="email" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
+					break;
+				case 'URLField':
+					input = `<input type="url" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
+					break;
+				default:
+					input = `<input type="text" id="${inputId}" name="${field.name}" class="form-input" value="${value}" ${field.required ? 'required' : ''}>`;
+			}
+
+			return `
+				<div class="form-group">
+					${field.field_type !== 'BooleanField' ? `<label class="form-label" for="${inputId}">${field.verbose_name || field.name} ${field.required ? '*' : ''}</label>` : ''}
+					${input}
+					${field.help_text ? `<p class="text-xs text-muted mt-1">${field.help_text}</p>` : ''}
+				</div>
+			`;
+		}).join('');
+	}
+
+	function closeRecordModal() {
+		document.getElementById('record-modal')!.style.display = 'none';
+	}
+
+	async function deleteRecord(id) {
+		if (!confirm('Sei sicuro di voler eliminare questo record?')) return;
+
+		try {
+			const token = localStorage.getItem('authToken');
+			const response = await fetch(`http://localhost:8000/api/data/${modelName}/${id}/`, {
+				method: 'DELETE',
+				headers: {
+					'Authorization': `Token ${token}`,
+					'Content-Type': 'application/json'
+				}
+			});
+
+			if (response.ok) {
+				// Rimuovi dall'array locale e aggiorna tabella
+				currentData = currentData.filter(r => r.id !== id);
+				updateStats();
+				renderTable();
+				
+				// Feedback positivo
+				const successMsg = document.createElement('div');
+				successMsg.className = 'alert alert-success';
+				successMsg.textContent = '✅ Record eliminato con successo!';
+				successMsg.style.position = 'fixed';
+				successMsg.style.top = '20px';
+				successMsg.style.right = '20px';
+				successMsg.style.zIndex = '9999';
+				document.body.appendChild(successMsg);
+				
+				setTimeout(() => successMsg.remove(), 3000);
+			} else {
+				throw new Error('Errore nell\'eliminazione');
+			}
+		} catch (error) {
+			console.error('Errore:', error);
+			alert('❌ Errore nell\'eliminazione del record');
+		}
+	}
+
+	async function refreshData() {
+		document.getElementById('loading')!.style.display = 'block';
+		document.getElementById('content')!.style.display = 'none';
+		await loadModelAndData();
+	}
+
+	// Submit form per salvare record
+	document.getElementById('record-form')?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		
+		const saveBtn = document.getElementById('save-record-btn');
+		const saveText = document.getElementById('save-record-text');
+		const saveSpinner = document.getElementById('save-record-spinner');
+		
+		// Disable form e mostra spinner
+		saveBtn.disabled = true;
+		saveText.style.display = 'none';
+		saveSpinner.style.display = 'inline-block';
+
+		try {
+			const formData = new FormData(e.target);
+			const recordData = {};
+			
+			// Converti FormData in oggetto per l'API
+			if (currentModel && currentModel.meta_fields) {
+				currentModel.meta_fields.forEach(field => {
+					const value = formData.get(field.name);
+					
+					switch (field.field_type) {
+						case 'BooleanField':
+							recordData[field.name] = formData.has(field.name);
+							break;
+						case 'IntegerField':
+							recordData[field.name] = value ? parseInt(value) : null;
+							break;
+						case 'FloatField':
+							recordData[field.name] = value ? parseFloat(value) : null;
+							break;
+						case 'DateField':
+						case 'DateTimeField':
+							recordData[field.name] = value || null;
+							break;
+						default:
+							recordData[field.name] = value || null;
+					}
+				});
+			}
+
+			const token = localStorage.getItem('authToken');
+			const recordId = document.getElementById('record-id').value;
+			
+			let response;
+			if (recordId) {
+				// Modifica record esistente
+				response = await fetch(`http://localhost:8000/api/data/${modelName}/${recordId}/`, {
+					method: 'PUT',
+					headers: {
+						'Authorization': `Token ${token}`,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(recordData)
+				});
+			} else {
+				// Crea nuovo record
+				response = await fetch(`http://localhost:8000/api/data/${modelName}/`, {
+					method: 'POST',
+					headers: {
+						'Authorization': `Token ${token}`,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(recordData)
+				});
+			}
+
+			if (response.ok) {
+				const savedRecord = await response.json();
+				
+				// Aggiorna array locale
+				if (recordId) {
+					const index = currentData.findIndex(r => r.id === parseInt(recordId));
+					if (index !== -1) {
+						currentData[index] = savedRecord;
+					}
+				} else {
+					currentData.push(savedRecord);
+				}
+
+				// Aggiorna UI
+				updateStats();
+				renderTable();
+				closeRecordModal();
+				
+				// Feedback positivo
+				const successMsg = document.createElement('div');
+				successMsg.className = 'alert alert-success';
+				successMsg.textContent = recordId ? '✅ Record aggiornato con successo!' : '✅ Record creato con successo!';
+				successMsg.style.position = 'fixed';
+				successMsg.style.top = '20px';
+				successMsg.style.right = '20px';
+				successMsg.style.zIndex = '9999';
+				document.body.appendChild(successMsg);
+				
+				setTimeout(() => successMsg.remove(), 3000);
+
+			} else {
+				const error = await response.json();
+				throw new Error(JSON.stringify(error));
+			}
+
+		} catch (error) {
+			console.error('Errore:', error);
+			alert('❌ Errore nel salvataggio del record: ' + error.message);
+		} finally {
+			// Ripristina stato del form
+			saveBtn.disabled = false;
+			saveText.style.display = 'inline';
+			saveSpinner.style.display = 'none';
+		}
+	});
+
+	// Chiudi modal cliccando fuori
+	document.getElementById('record-modal')?.addEventListener('click', (e) => {
+		if (e.target === e.currentTarget) {
+			closeRecordModal();
+		}
+	});
+
+	// Setup search functionality
+	document.getElementById('search-input')?.addEventListener('input', (e) => {
+		const searchTerm = (e.target as HTMLInputElement).value.toLowerCase();
+		filterTable(searchTerm);
+	});
+
+	function filterTable(searchTerm) {
+		const tbody = document.getElementById('table-body');
+		if (!tbody) return;
+
+		const rows = tbody.querySelectorAll('tr');
+		
+		rows.forEach(row => {
+			const text = row.textContent?.toLowerCase() || '';
+			row.style.display = text.includes(searchTerm) ? '' : 'none';
+		});
+
+		// Mostra messaggio se nessun risultato
+		const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
+		const noDataEl = document.getElementById('no-data');
+		
+		if (visibleRows.length === 0 && searchTerm) {
+			const tbody = document.getElementById('table-body');
+			if (tbody && noDataEl) {
+				tbody.style.display = 'none';
+				noDataEl.style.display = 'block';
+				noDataEl.innerHTML = `
+					<p class="text-muted">Nessun risultato per "${searchTerm}"</p>
+					<button class="btn btn-secondary" onclick="clearSearch()">Cancella ricerca</button>
+				`;
+			}
+		} else {
+			if (tbody) tbody.style.display = '';
+			if (noDataEl && currentData.length > 0) noDataEl.style.display = 'none';
+		}
+	}
+
+	// Global function per cancellare la ricerca
+	window.clearSearch = function() {
+		const searchInput = document.getElementById('search-input') as HTMLInputElement;
+		if (searchInput) {
+			searchInput.value = '';
+			filterTable('');
+		}
+	};
+</script>
+</Layout>

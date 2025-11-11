@@ -1,0 +1,63 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Gestione Dati">
+	<div class="container">
+		<div class="card">
+			<h2>Seleziona un Modello per Gestire i Dati</h2>
+			<div id="models-list">
+				<p>Caricamento modelli...</p>
+			</div>
+		</div>
+	</div>
+	
+	<script>
+		async function loadModels() {
+			try {
+				const response = await fetch('http://localhost:8000/api/meta-models/');
+				const data = await response.json();
+				const models = data.results || data;
+				
+				const listEl = document.getElementById('models-list');
+				if (!listEl) return;
+				
+				if (models.length === 0) {
+					listEl.innerHTML = '<p>Nessun modello trovato. <a href="/models/new">Crea il primo modello</a></p>';
+					return;
+				}
+				
+				let html = '<div style="display: grid; gap: 1rem;">';
+				
+				models.forEach((model) => {
+					if (model.is_active) {
+						html += `
+							<div class="card" style="border-left: 4px solid #3498db;">
+								<div style="display: flex; justify-content: space-between; align-items: center;">
+									<div>
+										<h3>${model.name}</h3>
+										<p><strong>Descrizione:</strong> ${model.description || 'Nessuna descrizione'}</p>
+										<p><strong>Campi:</strong> ${model.meta_fields ? model.meta_fields.length : 0}</p>
+									</div>
+									<a href="/data/${model.name}" class="btn">📊 Gestisci Dati</a>
+								</div>
+							</div>
+						`;
+					}
+				});
+				
+				html += '</div>';
+				listEl.innerHTML = html;
+				
+			} catch (error) {
+				const listEl = document.getElementById('models-list');
+				if (listEl) {
+					listEl.innerHTML = '<p style="color: red;">❌ Errore nel caricamento dei modelli. Verifica che il server Django sia attivo.</p>';
+				}
+			}
+		}
+		
+		// Carica modelli al load della pagina
+		loadModels();
+	</script>
+</Layout>

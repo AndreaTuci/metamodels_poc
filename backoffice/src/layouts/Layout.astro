@@ -1,0 +1,100 @@
+---
+export interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="it">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="MetaModel Dynamic CMS Backoffice" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<link rel="stylesheet" href="/src/styles/global.css" />
+	</head>
+	<body>
+		<div class="content-wrapper">
+			<!-- Header con navigazione -->
+			<header class="header">
+				<div class="container">
+					<nav class="nav">
+						<a href="/" class="logo">🎯 MetaModel CMS</a>
+						
+						<ul class="nav-links">
+							<li><a href="/">Dashboard</a></li>
+							<li><a href="/models">Models</a></li>
+							<li><a href="/data">Data</a></li>
+						</ul>
+						
+						<div class="user-info">
+							<span id="user-display"></span>
+							<button class="btn btn-secondary btn-sm" onclick="handleLogout()">Logout</button>
+						</div>
+					</nav>
+				</div>
+			</header>
+			
+			<!-- Main content -->
+			<main class="main-content">
+				<div class="container">
+					<slot />
+				</div>
+			</main>
+		</div>
+		
+		<script>
+			// Mostra info utente se loggato
+			document.addEventListener('DOMContentLoaded', function() {
+				const userInfo = localStorage.getItem('userInfo');
+				if (userInfo) {
+					const user = JSON.parse(userInfo);
+					const userDisplay = document.getElementById('user-display');
+					if (userDisplay) {
+						userDisplay.textContent = `👋 ${user.username}`;
+					}
+				}
+				
+				// Controllo autenticazione per pagine protette
+				if (window.location.pathname !== '/login') {
+					const token = localStorage.getItem('authToken');
+					if (!token) {
+						window.location.href = '/login';
+					}
+				} else if (localStorage.getItem('authToken')) {
+					// Se già loggato e nella pagina login, redirect alla home
+					window.location.href = '/';
+				}
+			});
+			
+			// Gestione logout
+			window.handleLogout = async function() {
+				try {
+					// Chiama API logout se disponibile
+					const token = localStorage.getItem('authToken');
+					if (token) {
+						await fetch('http://localhost:8000/auth/logout/', {
+							method: 'POST',
+							headers: {
+								'Authorization': `Token ${token}`,
+								'Content-Type': 'application/json'
+							}
+						});
+					}
+				} catch (error) {
+					console.log('Logout API error (non critical):', error);
+				}
+				
+				// Pulisci storage locale
+				localStorage.removeItem('authToken');
+				localStorage.removeItem('userInfo');
+				
+				// Redirect al login
+				window.location.href = '/login';
+			};
+		</script>
+	</body>
+</html>

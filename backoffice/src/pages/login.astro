@@ -1,0 +1,159 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Login - MetaModel CMS">
+	<div class="login-container">
+		<div class="card login-card">
+			<div class="card-body">
+				<div class="text-center mb-4">
+					<div class="logo-icon">🔐</div>
+					<h1 class="card-title">Accedi al CMS</h1>
+					<p class="card-subtitle">Inserisci le tue credenziali per continuare</p>
+				</div>
+				
+				<div id="login-error" class="alert alert-error" style="display: none;"></div>
+				
+				<form id="login-form">
+					<div class="form-group">
+						<label class="form-label" for="username">Username</label>
+						<input 
+							type="text" 
+							id="username" 
+							name="username" 
+							class="form-input" 
+							required 
+							placeholder="Inserisci il tuo username"
+						>
+					</div>
+					
+					<div class="form-group">
+						<label class="form-label" for="password">Password</label>
+						<input 
+							type="password" 
+							id="password" 
+							name="password" 
+							class="form-input" 
+							required 
+							placeholder="Inserisci la tua password"
+						>
+					</div>
+					
+					<button type="submit" class="btn btn-primary w-full btn-lg" id="login-btn">
+						<span id="login-text">Accedi</span>
+						<div id="login-spinner" class="loading" style="display: none;"></div>
+					</button>
+				</form>
+				
+				<div class="login-footer">
+					<p class="text-small text-muted">
+						💡 Usa le credenziali di amministratore Django
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</Layout>
+
+<style>
+	.login-container {
+		min-height: calc(100vh - 200px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem 0;
+	}
+	
+	.login-card {
+		width: 100%;
+		max-width: 400px;
+		margin: 0 auto;
+	}
+	
+	.logo-icon {
+		font-size: 3rem;
+		margin-bottom: 1rem;
+	}
+	
+	.login-footer {
+		margin-top: 2rem;
+		padding-top: 1rem;
+		border-top: 1px solid #e2e8f0;
+		text-align: center;
+	}
+</style>
+
+<script>
+	// Verifica se già loggato
+	if (typeof window !== 'undefined' && localStorage.getItem('authToken')) {
+		window.location.href = '/';
+	}
+	
+	document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+		e.preventDefault();
+		
+		const formData = new FormData(e.target as HTMLFormElement);
+		const username = formData.get('username');
+		const password = formData.get('password');
+		
+		const errorDiv = document.getElementById('login-error');
+		const loginBtn = document.getElementById('login-btn');
+		const loginText = document.getElementById('login-text');
+		const loginSpinner = document.getElementById('login-spinner');
+		
+		// Reset UI
+		if (errorDiv) errorDiv.style.display = 'none';
+		if (loginBtn) loginBtn.disabled = true;
+		if (loginText) loginText.style.display = 'none';
+		if (loginSpinner) loginSpinner.style.display = 'inline-block';
+		
+		try {
+			// Usa il nuovo endpoint di autenticazione token
+			const loginResponse = await fetch('http://localhost:8000/auth/login/', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					username: username as string,
+					password: password as string
+				})
+			});
+			
+			if (loginResponse.ok) {
+				const data = await loginResponse.json();
+				
+				// Salva il token e info utente
+				localStorage.setItem('authToken', data.token);
+				localStorage.setItem('userInfo', JSON.stringify({
+					id: data.user_id,
+					username: data.username,
+					email: data.email
+				}));
+				
+				// Redirect alla dashboard
+				window.location.href = '/';
+			} else {
+				const errorData = await loginResponse.json().catch(() => ({}));
+				showError(errorData.detail || 'Credenziali non valide');
+			}
+			
+		} catch (error) {
+			console.error('Login error:', error);
+			showError('Errore di connessione al server. Verifica che Django sia in esecuzione.');
+		} finally {
+			// Ripristina UI
+			if (loginBtn) loginBtn.disabled = false;
+			if (loginText) loginText.style.display = 'inline';
+			if (loginSpinner) loginSpinner.style.display = 'none';
+		}
+	});
+	
+	function showError(message: string) {
+		const errorDiv = document.getElementById('login-error');
+		if (errorDiv) {
+			errorDiv.textContent = message;
+			errorDiv.style.display = 'block';
+		}
+	}
+</script>

@@ -1,0 +1,22 @@
+{
+  "name": "metamodel-backoffice",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/vue": "^4.5.2",
+    "astro": "^4.16.17",
+    "vue": "^3.5.12",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
