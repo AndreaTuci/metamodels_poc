@@ -47,54 +47,76 @@ const { title } = Astro.props;
 		</div>
 		
 		<script>
-			// Mostra info utente se loggato
-			document.addEventListener('DOMContentLoaded', function() {
-				const userInfo = localStorage.getItem('userInfo');
+			// Import AuthManager
+			import('/src/utils/authManager.js').then(module => {
+				window.AuthManager = module.default;
+				initializeAuth();
+			}).catch(() => {
+				// Fallback se il modulo non si carica
+				initializeAuth();
+			});
+
+			function initializeAuth() {
+				// Mostra info utente se loggato
+				const userInfo = window.AuthManager ? 
+					window.AuthManager.getUserInfo() : 
+					JSON.parse(localStorage.getItem('userInfo') || 'null');
+				
 				if (userInfo) {
-					const user = JSON.parse(userInfo);
 					const userDisplay = document.getElementById('user-display');
 					if (userDisplay) {
-						userDisplay.textContent = `👋 ${user.username}`;
+						userDisplay.textContent = `👋 ${userInfo.username}`;
 					}
 				}
 				
 				// Controllo autenticazione per pagine protette
 				if (window.location.pathname !== '/login') {
-					const token = localStorage.getItem('authToken');
-					if (!token) {
+					const isAuth = window.AuthManager ? 
+						window.AuthManager.isAuthenticated() : 
+						!!localStorage.getItem('authToken');
+					
+					if (!isAuth) {
 						window.location.href = '/login';
 					}
-				} else if (localStorage.getItem('authToken')) {
+				} else if (window.AuthManager ? window.AuthManager.isAuthenticated() : !!localStorage.getItem('authToken')) {
 					// Se già loggato e nella pagina login, redirect alla home
 					window.location.href = '/';
 				}
-			});
-			
-			// Gestione logout
+			}
+
+			// Gestione logout con AuthManager
 			window.handleLogout = async function() {
-				try {
-					// Chiama API logout se disponibile
-					const token = localStorage.getItem('authToken');
-					if (token) {
-						await fetch('http://localhost:8000/auth/logout/', {
-							method: 'POST',
-							headers: {
-								'Authorization': `Token ${token}`,
-								'Content-Type': 'application/json'
-							}
-						});
+				if (window.AuthManager) {
+					await window.AuthManager.logout();
+				} else {
+					// Fallback al metodo originale
+					try {
+						const token = localStorage.getItem('authToken');
+						if (token) {
+							await fetch('http://localhost:8000/auth/logout/', {
+								method: 'POST',
+								headers: {
+									'Authorization': `Token ${token}`,
+									'Content-Type': 'application/json'
+								}
+							});
+						}
+					} catch (error) {
+						console.log('Logout API error (non critical):', error);
 					}
-				} catch (error) {
-					console.log('Logout API error (non critical):', error);
+					
+					localStorage.removeItem('authToken');
+					localStorage.removeItem('userInfo');
+					window.location.href = '/login';
 				}
-				
-				// Pulisci storage locale
-				localStorage.removeItem('authToken');
-				localStorage.removeItem('userInfo');
-				
-				// Redirect al login
-				window.location.href = '/login';
 			};
+
+			// Inizializza immediatamente se possibile
+			document.addEventListener('DOMContentLoaded', function() {
+				if (!window.AuthManager) {
+					initializeAuth();
+				}
+			});
 		</script>
 	</body>
 </html>

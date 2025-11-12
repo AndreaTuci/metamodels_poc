@@ -84,9 +84,24 @@ import Layout from '../layouts/Layout.astro';
 </style>
 
 <script>
-	// Verifica se già loggato
-	if (typeof window !== 'undefined' && localStorage.getItem('authToken')) {
-		window.location.href = '/';
+	// Import AuthManager
+	import('/src/utils/authManager.js').then(module => {
+		window.AuthManager = module.default;
+		checkExistingAuth();
+	}).catch(() => {
+		// Fallback se il modulo non si carica
+		checkExistingAuth();
+	});
+
+	function checkExistingAuth() {
+		// Verifica se già loggato
+		const isAuth = window.AuthManager ? 
+			window.AuthManager.isAuthenticated() : 
+			!!localStorage.getItem('authToken');
+		
+		if (isAuth) {
+			window.location.href = '/';
+		}
 	}
 	
 	document.getElementById('login-form')?.addEventListener('submit', async (e) => {
@@ -123,13 +138,22 @@ import Layout from '../layouts/Layout.astro';
 			if (loginResponse.ok) {
 				const data = await loginResponse.json();
 				
-				// Salva il token e info utente
-				localStorage.setItem('authToken', data.token);
-				localStorage.setItem('userInfo', JSON.stringify({
-					id: data.user_id,
-					username: data.username,
-					email: data.email
-				}));
+				// Usa AuthManager se disponibile, altrimenti fallback
+				if (window.AuthManager) {
+					window.AuthManager.setAuth(data.token, {
+						id: data.user_id,
+						username: data.username,
+						email: data.email
+					});
+				} else {
+					// Fallback al metodo originale
+					localStorage.setItem('authToken', data.token);
+					localStorage.setItem('userInfo', JSON.stringify({
+						id: data.user_id,
+						username: data.username,
+						email: data.email
+					}));
+				}
 				
 				// Redirect alla dashboard
 				window.location.href = '/';

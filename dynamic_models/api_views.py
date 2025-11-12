@@ -1,7 +1,7 @@
 from rest_framework import viewsets, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Model
 from .models import MetaModel, MetaField
@@ -34,7 +34,19 @@ class MetaModelViewSet(viewsets.ModelViewSet):
     """
     queryset = MetaModel.objects.all()
     serializer_class = MetaModelSerializer
-    permission_classes = [IsAdminUser]
+    
+    def get_permissions(self):
+        """
+        Istanzia e restituisce la lista delle permissions richieste per questa view.
+        """
+        if self.action in ['list', 'retrieve', 'schema']:
+            # Per la lettura basta essere autenticati
+            permission_classes = [IsAuthenticated]
+        else:
+            # Per le operazioni di scrittura serve essere admin
+            permission_classes = [IsAdminUser]
+        
+        return [permission() for permission in permission_classes]
     
     @action(detail=True, methods=['post'])
     def create_table(self, request, pk=None):
@@ -146,8 +158,20 @@ class DynamicModelViewSet(viewsets.ModelViewSet):
     """
     ViewSet generico per gestire i dati dei modelli dinamici
     """
-    permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser, JSONParser]  # Supporto per file upload
+    
+    def get_permissions(self):
+        """
+        Istanzia e restituisce la lista delle permissions richieste per questa view.
+        """
+        if self.action in ['list', 'retrieve']:
+            # Per la lettura basta essere autenticati
+            permission_classes = [IsAuthenticated]
+        else:
+            # Per le operazioni di scrittura serve essere admin
+            permission_classes = [IsAdminUser]
+        
+        return [permission() for permission in permission_classes]
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

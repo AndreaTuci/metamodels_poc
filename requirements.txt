@@ -1,6 +1,6 @@
-Django==5.2.8
-djangorestframework>=3.14,<4
-django-cors-headers>=4.0,<5
+Django
+djangorestframework
+django-cors-headers
 # DB driver: using sqlite3 (builtin). If you use Postgres, add psycopg2-binary
-# psycopg2-binary>=2.9
+psycopg2-binary
 pillow

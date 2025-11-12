@@ -19,11 +19,35 @@ import Layout from '../layouts/Layout.astro';
 	</div>
 	
 	<script>
+		// Import AuthManager per gestione automatica dei token
+		let AuthManager = null;
+		import('/src/utils/authManager.js').then(module => {
+			AuthManager = module.default;
+			window.AuthManager = AuthManager;
+		}).catch(console.error);
+
 		async function loadModels() {
 			try {
-				const response = await fetch('http://localhost:8000/api/meta-models/', {
-					credentials: 'include'
-				});
+				let response;
+				
+				// Usa AuthManager se disponibile per gestione automatica token scaduti
+				if (AuthManager) {
+					response = await AuthManager.makeAuthenticatedRequest('http://localhost:8000/api/meta-models/');
+				} else {
+					// Fallback al metodo originale
+					const token = localStorage.getItem('authToken');
+					if (!token) {
+						window.location.href = '/login';
+						return;
+					}
+					
+					response = await fetch('http://localhost:8000/api/meta-models/', {
+						headers: {
+							'Authorization': `Token ${token}`,
+							'Content-Type': 'application/json'
+						}
+					});
+				}
 				const data = await response.json();
 				const models = data.results || data;
 				
@@ -87,10 +111,27 @@ import Layout from '../layouts/Layout.astro';
 		
 		async function createTable(modelId) {
 			try {
-				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/create_table/`, {
-					method: 'POST',
-					credentials: 'include'
-				});
+				let response;
+				
+				if (AuthManager) {
+					response = await AuthManager.makeAuthenticatedRequest(`http://localhost:8000/api/meta-models/${modelId}/create_table/`, {
+						method: 'POST'
+					});
+				} else {
+					const token = localStorage.getItem('authToken');
+					if (!token) {
+						window.location.href = '/login';
+						return;
+					}
+					
+					response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/create_table/`, {
+						method: 'POST',
+						headers: {
+							'Authorization': `Token ${token}`,
+							'Content-Type': 'application/json'
+						}
+					});
+				}
 				
 				if (response.ok) {
 					alert('✅ Tabella creata con successo!');
@@ -104,10 +145,27 @@ import Layout from '../layouts/Layout.astro';
 		
 		async function updateTable(modelId) {
 			try {
-				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/update_table/`, {
-					method: 'POST',
-					credentials: 'include'
-				});
+				let response;
+				
+				if (AuthManager) {
+					response = await AuthManager.makeAuthenticatedRequest(`http://localhost:8000/api/meta-models/${modelId}/update_table/`, {
+						method: 'POST'
+					});
+				} else {
+					const token = localStorage.getItem('authToken');
+					if (!token) {
+						window.location.href = '/login';
+						return;
+					}
+					
+					response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/update_table/`, {
+						method: 'POST',
+						headers: {
+							'Authorization': `Token ${token}`,
+							'Content-Type': 'application/json'
+						}
+					});
+				}
 				
 				if (response.ok) {
 					alert('✅ Tabella aggiornata con successo!');
@@ -123,10 +181,27 @@ import Layout from '../layouts/Layout.astro';
 			if (!confirm('Sei sicuro di voler eliminare questo modello?')) return;
 			
 			try {
-				const response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/`, {
-					method: 'DELETE',
-					credentials: 'include'
-				});
+				let response;
+				
+				if (AuthManager) {
+					response = await AuthManager.makeAuthenticatedRequest(`http://localhost:8000/api/meta-models/${modelId}/`, {
+						method: 'DELETE'
+					});
+				} else {
+					const token = localStorage.getItem('authToken');
+					if (!token) {
+						window.location.href = '/login';
+						return;
+					}
+					
+					response = await fetch(`http://localhost:8000/api/meta-models/${modelId}/`, {
+						method: 'DELETE',
+						headers: {
+							'Authorization': `Token ${token}`,
+							'Content-Type': 'application/json'
+						}
+					});
+				}
 				
 				if (response.ok) {
 					alert('✅ Modello eliminato con successo!');
